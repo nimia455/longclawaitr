@@ -1,0 +1,98 @@
+# Build and deploy Longclaw (Vite + React) to GitHub Pages
+# Supports default *.github.io subpaths AND custom domains (via root CNAME, public/CNAME, or vars.CUSTOM_DOMAIN)
+name: Deploy Longclaw to GitHub Pages
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Resolve base path and custom domain
+        id: domain
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          CUSTOM_DOMAIN_VAR: ${{ vars.CUSTOM_DOMAIN }}
+        run: |
+          RAW_CNAME=""
+          if [ -n "$CUSTOM_DOMAIN_VAR" ]; then
+            RAW_CNAME="$CUSTOM_DOMAIN_VAR"
+          elif [ -f "CNAME" ]; then
+            RAW_CNAME="$(head -n 1 CNAME)"
+          elif [ -f "public/CNAME" ]; then
+            RAW_CNAME="$(head -n 1 public/CNAME)"
+          fi
+
+          # Strip accidental protocol, path, whitespace, or CRLF so GitHub Pages CNAME validation never fails
+          CLEAN_CNAME="$(printf '%s' "$RAW_CNAME" | tr -d '\r\n ' | sed -E 's#^https?://##; s#/.*$##')"
+
+          if [ -n "$CLEAN_CNAME" ]; then
+            echo "cname=$CLEAN_CNAME" >> "$GITHUB_OUTPUT"
+            echo "base_path=/" >> "$GITHUB_OUTPUT"
+          elif [ -n "$PAGES_BASE_PATH" ] && [ "$PAGES_BASE_PATH" != "/" ]; then
+            echo "cname=" >> "$GITHUB_OUTPUT"
+            echo "base_path=${PAGES_BASE_PATH}/" >> "$GITHUB_OUTPUT"
+          else
+            echo "cname=" >> "$GITHUB_OUTPUT"
+            echo "base_path=/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build production site for GitHub Pages
+        env:
+          VITE_BASE_PATH: ${{ steps.domain.outputs.base_path }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_STATIC_HOST: "true"
+        run: npm run build
+
+      - name: Add SPA 404 fallback, .nojekyll, and preserve CNAME
+        env:
+          CLEAN_CNAME: ${{ steps.domain.outputs.cname }}
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+          if [ -n "$CLEAN_CNAME" ]; then
+            printf '%s\n' "$CLEAN_CNAME" > dist/CNAME
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

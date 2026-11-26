@@ -1,0 +1,651 @@
+@import "tailwindcss";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+}
+
+:root {
+  /* Original Longclaw Calm Editorial — Warm Paper & Charcoal Ink */
+  --bg: #FAF9F6;
+  --surf: #F2EFEA;
+  --card: #FFFFFF;
+  --tx: #181715;
+  --mut: #6F6A62;
+  --ac: #181715;
+  --acd: #2F2D29;
+  --ac-soft: rgba(24, 23, 21, 0.06);
+  --on: #FAF9F6;
+  --bd: #E6E1D9;
+  --sh: 0 12px 32px -16px rgba(24, 23, 21, 0.12);
+  --ease-calm: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-glide: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-liquid: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Typography Tokens — Unified Plus Jakarta Sans across UI, Display & Brand */
+  --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-brand: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: light;
+}
+
+/* Turkish Latin-Extended typography — crisp ğ, ş, ı, İ, ö, ü, ç in Plus Jakarta Sans */
+:root[lang="tr"] {
+  --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Optional explicit user typography overrides from Settings */
+:root[data-font="tr-sans"],
+:root[data-font="jakarta"] {
+  --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+:root[data-font="serif"] {
+  --font-ui: 'Source Serif 4', Georgia, serif;
+  --font-editorial: 'Source Serif 4', Georgia, serif;
+}
+
+[data-theme="dark"] {
+  /* Original Longclaw Calm Editorial — Deep Warm Charcoal & Ivory */
+  --bg: #111110;
+  --surf: #1A1917;
+  --card: #21201D;
+  --tx: #F4F2EC;
+  --mut: #9B958C;
+  --ac: #F4F2EC;
+  --acd: #DFDBD2;
+  --ac-soft: rgba(244, 242, 236, 0.08);
+  --on: #111110;
+  --bd: #2D2B27;
+  --sh: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111110;
+    --surf: #1A1917;
+    --card: #21201D;
+    --tx: #F4F2EC;
+    --mut: #9B958C;
+    --ac: #F4F2EC;
+    --acd: #DFDBD2;
+    --ac-soft: rgba(244, 242, 236, 0.08);
+    --on: #111110;
+    --bd: #2D2B27;
+    --sh: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--tx);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  overscroll-behavior-y: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ==========================================================================
+   Original Warm Minimal Surface System (Clean Flat Editorial + Subtle Shadows)
+   ========================================================================== */
+
+.canvas-tactile {
+  position: relative;
+}
+
+/* Serene Atmospheric Background — Sunlit Alpine Dawn (Light) & Blue-Hour Twilight (Dark) */
+.ambient-canvas {
+  position: relative;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 85% 55% at 12% 18%, rgba(244, 212, 178, 0.34), transparent 64%),
+    radial-gradient(ellipse 75% 50% at 88% 12%, rgba(190, 212, 234, 0.32), transparent 62%),
+    radial-gradient(ellipse 90% 60% at 50% 58%, rgba(238, 226, 208, 0.34), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 85% 88%, rgba(214, 224, 236, 0.28), transparent 65%);
+  background-attachment: fixed;
+}
+
+[data-theme="dark"] .ambient-canvas {
+  background-image:
+    radial-gradient(ellipse 85% 55% at 18% 12%, rgba(74, 96, 130, 0.28), transparent 64%),
+    radial-gradient(ellipse 70% 48% at 82% 24%, rgba(196, 136, 92, 0.18), transparent 62%),
+    radial-gradient(ellipse 90% 60% at 50% 65%, rgba(44, 54, 72, 0.30), transparent 72%),
+    radial-gradient(ellipse 75% 45% at 15% 88%, rgba(154, 108, 76, 0.15), transparent 64%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ambient-canvas {
+    background-image:
+      radial-gradient(ellipse 85% 55% at 18% 12%, rgba(74, 96, 130, 0.28), transparent 64%),
+      radial-gradient(ellipse 70% 48% at 82% 24%, rgba(196, 136, 92, 0.18), transparent 62%),
+      radial-gradient(ellipse 90% 60% at 50% 65%, rgba(44, 54, 72, 0.30), transparent 72%),
+      radial-gradient(ellipse 75% 45% at 15% 88%, rgba(154, 108, 76, 0.15), transparent 64%);
+  }
+}
+
+.ambient-chat-canvas {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 78% 46% at 50% -6%, rgba(238, 212, 184, 0.32), transparent 68%),
+    radial-gradient(ellipse 64% 48% at 92% 18%, rgba(194, 214, 234, 0.28), transparent 64%),
+    radial-gradient(ellipse 70% 52% at 8% 88%, rgba(235, 224, 208, 0.30), transparent 68%);
+}
+
+[data-theme="dark"] .ambient-chat-canvas {
+  background-image:
+    radial-gradient(ellipse 78% 46% at 50% -6%, rgba(76, 98, 132, 0.28), transparent 68%),
+    radial-gradient(ellipse 62% 46% at 86% 20%, rgba(194, 132, 88, 0.16), transparent 64%),
+    radial-gradient(ellipse 70% 52% at 12% 86%, rgba(44, 54, 74, 0.28), transparent 68%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ambient-chat-canvas {
+    background-image:
+      radial-gradient(ellipse 78% 46% at 50% -6%, rgba(76, 98, 132, 0.28), transparent 68%),
+      radial-gradient(ellipse 62% 46% at 86% 20%, rgba(194, 132, 88, 0.16), transparent 64%),
+      radial-gradient(ellipse 70% 52% at 12% 86%, rgba(44, 54, 74, 0.28), transparent 68%);
+  }
+}
+
+.ambient-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+}
+
+.surface-3d {
+  background-color: var(--card);
+  border: 1px solid var(--bd);
+  box-shadow: 0 1px 2px rgba(24, 23, 21, 0.03);
+}
+
+.surface-3d-elevated {
+  background-color: var(--card);
+  border: 1px solid var(--bd);
+  box-shadow: var(--sh);
+}
+
+.surface-3d-glass {
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--bd);
+}
+
+.well-3d {
+  background-color: var(--surf);
+  border: 1px solid var(--bd);
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.well-3d:focus-within {
+  border-color: var(--tx);
+}
+
+.composer-3d {
+  background-color: var(--card);
+  border: 1px solid var(--bd);
+  box-shadow: 0 8px 28px -12px rgba(24, 23, 21, 0.1);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.composer-3d:focus-within {
+  border-color: color-mix(in srgb, var(--tx) 40%, var(--bd));
+}
+
+[data-theme="dark"] .composer-3d {
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.48);
+}
+
+.btn-3d-primary {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--ac);
+  color: var(--on);
+  border: 1px solid transparent;
+  transition:
+    opacity 0.18s var(--ease-calm),
+    transform 0.22s var(--ease-calm),
+    box-shadow 0.22s var(--ease-calm);
+}
+
+.btn-3d-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-3d-primary:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.985);
+  transition-duration: 0.1s;
+}
+
+.btn-3d-soft {
+  background-color: var(--card);
+  color: var(--tx);
+  border: 1px solid var(--bd);
+  transition:
+    background-color 0.18s var(--ease-calm),
+    border-color 0.18s var(--ease-calm),
+    transform 0.22s var(--ease-calm);
+}
+
+.btn-3d-soft:hover:not(:disabled) {
+  background-color: var(--surf);
+  transform: translateY(-1px);
+}
+
+.btn-3d-soft:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.985);
+  transition-duration: 0.1s;
+}
+
+.btn-3d-hero-light {
+  background-color: var(--ac);
+  color: var(--on);
+  transition:
+    opacity 0.18s var(--ease-calm),
+    transform 0.22s var(--ease-calm);
+}
+
+.btn-3d-hero-light:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-3d-hero-light:active {
+  transform: translateY(0.5px) scale(0.985);
+  transition-duration: 0.1s;
+}
+
+.bubble-3d-user {
+  background-color: var(--ac);
+  color: var(--on);
+}
+
+.photo-frame-3d {
+  border: 1px solid var(--bd);
+  box-shadow: 0 14px 36px -20px rgba(24, 23, 21, 0.18);
+}
+
+[data-theme="dark"] .photo-frame-3d {
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+}
+
+.tile-3d {
+  background-color: var(--card);
+  border: 1px solid var(--bd);
+  transition:
+    transform 0.24s var(--ease-calm),
+    border-color 0.2s var(--ease-calm),
+    background-color 0.2s var(--ease-calm),
+    box-shadow 0.24s var(--ease-calm);
+}
+
+.tile-3d:hover {
+  border-color: color-mix(in srgb, var(--tx) 26%, var(--bd));
+  background-color: var(--surf);
+  transform: translateY(-1.5px);
+  box-shadow: 0 12px 28px -20px rgba(24, 23, 21, 0.14);
+}
+
+.tile-3d:active {
+  transform: translateY(0) scale(0.988);
+  transition-duration: 0.1s;
+}
+
+/* Quiet Human-Crafted Tactile Motion Utilities (No Glare Sweeps, No Overshoot) */
+.smooth-btn {
+  position: relative;
+  transition:
+    transform 0.22s var(--ease-calm),
+    opacity 0.18s var(--ease-calm),
+    background-color 0.2s var(--ease-calm),
+    border-color 0.2s var(--ease-calm),
+    box-shadow 0.22s var(--ease-calm);
+}
+
+.smooth-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.smooth-btn:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.985);
+  transition-duration: 0.1s;
+}
+
+.smooth-card {
+  transition:
+    transform 0.26s var(--ease-calm),
+    border-color 0.22s var(--ease-calm),
+    box-shadow 0.26s var(--ease-calm),
+    background-color 0.22s var(--ease-calm);
+}
+
+.smooth-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--tx) 20%, var(--bd));
+  box-shadow: 0 18px 40px -26px rgba(24, 23, 21, 0.16);
+}
+
+[data-theme="dark"] .smooth-card:hover {
+  box-shadow: 0 22px 46px -26px rgba(0, 0, 0, 0.58);
+}
+
+/* Pointer-tracked subtle architectural card light (60fps CSS vars, zero blur) */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s var(--ease-calm);
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 50%),
+    var(--ac-soft),
+    transparent 70%
+  );
+  z-index: 1;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.smooth-photo {
+  transition: transform 0.7s var(--ease-calm);
+  will-change: transform;
+}
+
+.group:hover .smooth-photo {
+  transform: scale(1.028);
+}
+
+.nav-underline {
+  position: relative;
+}
+
+.nav-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition: transform 0.24s var(--ease-calm), opacity 0.2s ease;
+}
+
+.nav-underline:hover::after,
+.nav-underline[data-active="true"]::after {
+  transform: scaleX(1);
+  opacity: 0.72;
+}
+
+.keycap-3d {
+  background-color: var(--surf);
+  border: 1px solid var(--bd);
+}
+
+.segmented-track-3d {
+  background-color: var(--surf);
+  border: 1px solid var(--bd);
+}
+
+.segmented-thumb-3d {
+  background-color: var(--card);
+  box-shadow: 0 1px 2px rgba(24, 23, 21, 0.08);
+}
+
+.bar-3d-track {
+  background-color: var(--surf);
+}
+
+.bar-3d-cobalt {
+  background-color: var(--ac);
+}
+
+.bar-3d-neutral {
+  background-color: var(--bd);
+}
+
+.sidebar-3d {
+  background-color: var(--surf);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer base {
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--tx);
+    outline-offset: 2px;
+  }
+
+  svg.lucide {
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+/* Typography Utilities (driven by language-aware & user-selectable CSS tokens) */
+.font-soft {
+  font-family: var(--font-ui);
+}
+
+.font-display,
+.font-serif-fraunces {
+  font-family: var(--font-editorial);
+}
+
+.font-space {
+  font-family: var(--font-brand);
+}
+
+/* Natural Human-Crafted Keyframes (Clean Opacity & Subtle Translation — Zero Blur) */
+@keyframes up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bn {
+  0%, 60%, 100% {
+    transform: none;
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-2.5px);
+    opacity: 0.92;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulseSoft {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes heroDrift {
+  0%, 100% {
+    transform: scale(1.015) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.035) translate3d(0, -4px, 0);
+  }
+}
+
+.hero-drift {
+  animation: heroDrift 28s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-up {
+  animation: up 0.32s var(--ease-calm) both;
+}
+
+.animate-pop {
+  animation: pop 0.26s var(--ease-calm) both;
+}
+
+.animate-fade,
+.animate-fadeIn {
+  animation: fade 0.2s var(--ease-calm) both;
+}
+
+.animate-shimmer {
+  color: var(--mut);
+  animation: pulseSoft 1.8s ease-in-out infinite;
+}
+
+/* ChatGPT-style smooth character-by-character streaming & breathing cursor */
+@keyframes chatgptDotPulse {
+  0%, 100% {
+    transform: scale(0.84);
+    opacity: 0.58;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes streamCharFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chatgpt-thinking-dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  background-color: var(--tx);
+  animation: chatgptDotPulse 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.chatgpt-stream-cursor {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background-color: var(--tx);
+  margin-left: 4px;
+  vertical-align: -1px;
+  animation: chatgptDotPulse 0.95s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.stream-char {
+  animation: streamCharFade 0.14s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar refinement */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bd);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mut);
+}

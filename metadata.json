@@ -1,0 +1,6 @@
+{
+  "name": "Longclaw",
+  "description": "Longclaw: yazarken, okurken ve düşünürken yanında olan yapay zekâ asistanı.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

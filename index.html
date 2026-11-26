@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Longclaw – Calm AI Workspace for Writing, Coding &amp; Thinking</title>
+    <meta name="description" content="Longclaw is a calm AI workspace for writing, coding with live preview, image generation, and direct Google Workspace commands across desktop and mobile." />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111110" />
+    <meta property="og:site_name" content="Longclaw" />
+    <meta property="og:title" content="Longclaw – Calm AI Workspace for Writing, Coding &amp; Thinking" />
+    <meta property="og:description" content="A calm AI workspace for writing, coding with live preview, image generation, and direct Google Workspace commands." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="tr_TR" />
+    <meta property="og:image" content="%BASE_URL%og-image.jpg" />
+    <meta property="og:image:alt" content="Longclaw – Calm AI Workspace" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Longclaw – Calm AI Workspace for Writing, Coding &amp; Thinking" />
+    <meta name="twitter:description" content="A calm AI workspace for writing, coding with live preview, image generation, and direct Google Workspace commands." />
+    <meta name="twitter:image" content="%BASE_URL%og-image.jpg" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&display=swap">
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var savedTheme = localStorage.getItem('lc_theme');
+          if (savedTheme === 'dark' || savedTheme === 'light') {
+            root.dataset.theme = savedTheme;
+          }
+          var savedLang = localStorage.getItem('lc_lang');
+          if (savedLang === 'tr' || savedLang === 'en') {
+            root.lang = savedLang;
+          } else if (navigator.language && navigator.language.toLowerCase().indexOf('tr') === 0) {
+            root.lang = 'tr';
+          }
+          var savedFont = localStorage.getItem('lc_font');
+          if (savedFont && savedFont !== 'auto') {
+            root.dataset.font = savedFont;
+          }
+          delete root.dataset.accent;
+          localStorage.removeItem('lc_accent_theme');
+          localStorage.removeItem('lc_logo_variant');
+        } catch (e) {}
+      })();
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Longclaw",
+        "applicationCategory": "ProductivityApplication",
+        "operatingSystem": "Web",
+        "inLanguage": ["en", "tr"],
+        "image": "%BASE_URL%og-image.jpg",
+        "description": "Longclaw is a calm AI workspace for writing, coding with live preview, image generation, and direct Google Workspace commands.",
+        "featureList": [
+          "Streaming AI chat with Clawing models",
+          "Sandboxed live HTML, CSS, JavaScript, and SVG code preview",
+          "Image generation and visual understanding",
+          "Direct Google Workspace commands for Gmail, Calendar, Drive, Docs, and Tasks",
+          "Custom slash commands and cloud-synced conversations"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FAF9F6;color:#181715;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;">
+        <div style="max-width:420px;">
+          <h1 style="font-size:22px;font-weight:600;margin:0 0 8px;">Longclaw</h1>
+          <p style="font-size:14px;color:#6E6B66;line-height:1.6;margin:0;">
+            JavaScript is required to run Longclaw. Please enable JavaScript in your browser settings and reload this page.
+          </p>
+        </div>
+      </div>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
