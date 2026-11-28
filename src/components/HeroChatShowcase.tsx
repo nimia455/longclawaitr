@@ -8,7 +8,7 @@ import {
   Play,
   RotateCcw,
 } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
 import { LongclawLogo } from './Icons';
 import { Language } from '../lib/i18n';
 import { EDITORIAL_EASE, LIQUID_EASE, LIQUID_MORPH, LIQUID_SPRING, LIQUID_TAP } from '../lib/motion';
@@ -149,6 +149,8 @@ export function HeroChatShowcase({
   className = 'mt-12 sm:mt-16 max-w-2xl mx-auto',
 }: HeroChatShowcaseProps) {
   const prefersReducedMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isInView = useInView(containerRef, { amount: 0.12 });
   const safeCount = Math.max(1, conversations.length);
 
   const [activeIdx, setActiveIdx] = useState(0);
@@ -159,8 +161,8 @@ export function HeroChatShowcase({
   const [visibleWords, setVisibleWords] = useState<string[]>([]);
   const [isPaused, setIsPaused] = useState(false);
 
-  const isPausedRef = useRef(isPaused);
-  isPausedRef.current = isPaused;
+  const isPausedRef = useRef(isPaused || !isInView);
+  isPausedRef.current = isPaused || !isInView;
 
   const currentIdx = activeIdx % safeCount;
   const currentConv = conversations[currentIdx] || { q: '', a: '' };
@@ -225,6 +227,10 @@ export function HeroChatShowcase({
       setSentQuestion(currentConv.q);
       setVisibleWords(answerTokens);
       setStage('done');
+      return;
+    }
+
+    if (!isInView) {
       return;
     }
 
@@ -303,7 +309,7 @@ export function HeroChatShowcase({
     return () => {
       cancelled = true;
     };
-  }, [currentIdx, lang, prefersReducedMotion, currentConv.q, currentConv.a, safeCount]);
+  }, [currentIdx, lang, prefersReducedMotion, isInView, currentConv.q, currentConv.a, safeCount]);
 
   // Format slash command prefix cleanly inside bubbles & composer
   const renderPromptText = (text: string) => {
@@ -311,7 +317,7 @@ export function HeroChatShowcase({
     if (!match) return text;
     return (
       <>
-        <span className="inline-flex items-center px-1.5 py-0.5 mr-1 rounded-md bg-[var(--ac)]/12 text-[var(--ac)] text-[13px] font-semibold align-baseline">
+        <span className="inline-flex items-center px-1.5 py-0.5 mr-1 rounded-md bg-[var(--editorial-accent-soft)] text-[var(--editorial-accent)] font-mono text-[12.5px] font-semibold align-baseline">
           {match[1]}
         </span>
         <span>{match[2]}</span>
@@ -321,17 +327,18 @@ export function HeroChatShowcase({
 
   return (
     <motion.div
+      ref={containerRef}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 24, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.6, delay: 0.18, ease: EDITORIAL_EASE }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className={`${className} text-left rounded-[28px] bg-[var(--card)]/95 backdrop-blur-2xl border border-[var(--bd)]/90 shadow-[0_32px_80px_-30px_rgba(24,23,21,0.22)] dark:shadow-[0_36px_88px_-28px_rgba(0,0,0,0.74)] overflow-hidden will-change-transform`}
+      className={`${className} text-left rounded-[26px] bg-[var(--card)] border border-[var(--bd)] shadow-[0_18px_44px_-28px_rgba(23,22,20,0.16)] dark:shadow-[0_24px_56px_-28px_rgba(0,0,0,0.65)] overflow-hidden`}
     >
       {/* Top Window Chrome: Brand Identity + Interactive Scenario Switcher */}
-      <div className="px-4 sm:px-6 py-3.5 border-b border-[var(--bd)]/75 bg-[var(--bg)]/50 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <LongclawLogo className="w-[20px] h-[20px] text-[var(--tx)] shrink-0" />
+      <div className="px-4 sm:px-6 py-3.5 border-b border-[var(--bd)]/80 bg-[var(--surf)]/45 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <LongclawLogo className="w-[19px] h-[19px] text-[var(--tx)] shrink-0" />
           <span className="truncate text-xs sm:text-[13px] font-semibold tracking-tight text-[var(--tx)]">
             {badgeLabel}
           </span>
@@ -343,29 +350,29 @@ export function HeroChatShowcase({
             const Icon = meta.Icon;
             const active = currentIdx === idx;
             return (
-              <motion.button
-                key={idx}
-                type="button"
-                whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
-                transition={LIQUID_TAP}
-                onClick={() => setActiveIdx(idx)}
-                className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap ${
-                  active
-                    ? 'text-[var(--on)]'
-                    : 'text-[var(--mut)] hover:text-[var(--tx)]'
-                }`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="hero-chat-scenario-pill"
-                    transition={LIQUID_MORPH}
-                    className="absolute inset-0 rounded-full bg-[var(--ac)]"
-                    aria-hidden="true"
-                  />
-                )}
-                <Icon className="relative z-10 w-3 h-3 shrink-0" />
-                <span className="relative z-10 hidden xs:inline sm:inline">{meta.label}</span>
-              </motion.button>
+                <button
+                  key={idx}
+                  type="button"
+                  title={meta.label}
+                  aria-label={meta.label}
+                  onClick={() => setActiveIdx(idx)}
+                  className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap ${
+                    active
+                      ? 'text-[var(--on)]'
+                      : 'text-[var(--mut)] hover:text-[var(--tx)]'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="hero-chat-scenario-pill"
+                      transition={LIQUID_MORPH}
+                      className="absolute inset-0 rounded-full bg-[var(--ac)]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <Icon className="relative z-10 w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
+                  <span className="relative z-10 hidden sm:inline">{meta.label}</span>
+                </button>
             );
           })}
         </div>
@@ -429,8 +436,8 @@ export function HeroChatShowcase({
                           cy="18"
                           r="16.5"
                           fill="none"
-                          stroke="var(--ac)"
-                          strokeWidth="1.5"
+                          stroke="var(--editorial-accent)"
+                          strokeWidth="1.6"
                           strokeLinecap="round"
                           strokeDasharray="24 80"
                         />
@@ -652,7 +659,7 @@ export function HeroChatShowcase({
         {!prefersReducedMotion && (
           <motion.div
             key={`progress-${currentIdx}-${stage}`}
-            className="h-full bg-[var(--ac)]/70 origin-left"
+            className="h-full bg-[var(--editorial-accent)]/75 origin-left"
             initial={{
               scaleX:
                 stage === 'composing'

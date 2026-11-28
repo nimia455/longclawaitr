@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AnimatePresence,
   motion,
+  useInView,
   useReducedMotion,
   useScroll,
   useSpring,
@@ -18,6 +19,7 @@ import {
   LIQUID_SCROLL_SPRING,
   LIQUID_SPRING,
   LIQUID_TAP,
+  useIsCoarsePointer,
 } from '../lib/motion';
 
 type MiniEyeShape = 'round' | 'oval' | 'square';
@@ -43,14 +45,16 @@ export function VoiceEyesMiniShowcase({
   onTryVoice: () => void;
 }) {
   const prefersReducedMotion = useReducedMotion();
+  const cardRef = useRef<HTMLElement | null>(null);
+  const isInView = useInView(cardRef, { amount: 0.15 });
   const [shape, setShape] = useState<MiniEyeShape>('round');
   const [isBlinking, setIsBlinking] = useState(false);
   const [isSmiling, setIsSmiling] = useState(false);
   const [gaze, setGaze] = useState({ x: 0, y: 0 });
 
-  // Gentle organic blink every ~3.4s
+  // Gentle organic blink every ~3.4s (only while visible on screen)
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || !isInView) return;
     let cancelled = false;
     const schedule = () =>
       window.setTimeout(() => {
@@ -67,11 +71,11 @@ export function VoiceEyesMiniShowcase({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, isInView]);
 
-  // Subtle whole-eye gaze shift (no pupils)
+  // Subtle whole-eye gaze shift (only while visible on screen)
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || !isInView) return;
     const positions = [
       { x: 0, y: 0 },
       { x: 6, y: -2 },
@@ -84,7 +88,7 @@ export function VoiceEyesMiniShowcase({
       setGaze(positions[idx]);
     }, 2400);
     return () => window.clearInterval(id);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, isInView]);
 
   const dims = MINI_EYE_DIMS[shape];
   const isTr = lang === 'tr';
@@ -102,11 +106,12 @@ export function VoiceEyesMiniShowcase({
 
   return (
     <motion.article
+      ref={cardRef}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={EDITORIAL_VIEWPORT}
       transition={{ duration: 0.52, delay: 0.12, ease: EDITORIAL_EASE }}
-      className="relative rounded-[28px] bg-[var(--card)] border border-[var(--bd)] p-6 sm:p-7 flex flex-col justify-between gap-6 overflow-hidden shadow-[0_16px_42px_-28px_rgba(24,23,21,0.15)] dark:shadow-[0_20px_50px_-26px_rgba(0,0,0,0.6)]"
+      className="relative rounded-[24px] bg-[var(--card)] border border-[var(--bd)] p-6 sm:p-7 flex flex-col justify-between gap-6 overflow-hidden transition-colors duration-300 hover:border-[var(--tx)]/24"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1.5">
@@ -214,6 +219,7 @@ const MODEL_QUALITATIVE_PROFILES: Record<
   ChatModelId,
   { speed: number; depth: number; creativity: number }
 > = {
+  'longclaw-ultracode-1': { speed: 84, depth: 99, creativity: 99 },
   'longclaw-clawing-1.2-ultra': { speed: 64, depth: 98, creativity: 96 },
   'longclaw-clawing-1.2-pro': { speed: 84, depth: 88, creativity: 90 },
   'longclaw-clawing-1.1-ultra': { speed: 68, depth: 92, creativity: 86 },
@@ -252,6 +258,7 @@ export function ModelFamilyLedger({
   const isTr = lang === 'tr';
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = dossierRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -263,10 +270,29 @@ export function ModelFamilyLedger({
     ? MODEL_QUALITATIVE_PROFILES[active.id] || { speed: 80, depth: 80, creativity: 80 }
     : { speed: 80, depth: 80, creativity: 80 };
 
+  const isUltraCode = active?.id === 'longclaw-ultracode-1';
   const profileAxes = [
     { label: isTr ? 'Yanıt hızı' : 'Response speed', value: activeProfile.speed },
-    { label: isTr ? 'Akıl yürütme derinliği' : 'Reasoning depth', value: activeProfile.depth },
-    { label: isTr ? 'Üretim ve yazım dengesi' : 'Writing & synthesis', value: activeProfile.creativity },
+    {
+      label: isUltraCode
+        ? isTr
+          ? 'Kod doğruluğu ve mimari'
+          : 'Code accuracy & architecture'
+        : isTr
+          ? 'Akıl yürütme derinliği'
+          : 'Reasoning depth',
+      value: activeProfile.depth,
+    },
+    {
+      label: isUltraCode
+        ? isTr
+          ? 'Hata ayıklama ve optimizasyon'
+          : 'Debugging & optimization'
+        : isTr
+          ? 'Üretim ve yazım dengesi'
+          : 'Writing & synthesis',
+      value: activeProfile.creativity,
+    },
   ];
 
   return (
@@ -280,22 +306,25 @@ export function ModelFamilyLedger({
               key={m.id}
               type="button"
               onClick={() => setSelectedIdx(idx)}
-              onMouseEnter={() => setSelectedIdx(idx)}
               aria-pressed={isSelected}
               className={`relative py-4 px-3.5 -mx-3.5 rounded-2xl text-left flex items-center justify-between gap-4 transition-colors cursor-pointer group ${
-                isSelected ? 'text-[var(--tx)]' : 'text-[var(--mut)] hover:text-[var(--tx)]'
+                isSelected ? 'text-[var(--tx)]' : 'text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--card)]/55'
               }`}
             >
               {isSelected && (
                 <motion.span
                   layoutId="landing-model-ledger-active"
                   transition={LIQUID_MORPH}
-                  className="absolute inset-0 rounded-2xl bg-[var(--card)] border border-[var(--bd)] shadow-[0_10px_28px_-18px_rgba(24,23,21,0.16)] dark:shadow-[0_12px_30px_-16px_rgba(0,0,0,0.6)]"
+                  className="absolute inset-0 rounded-2xl bg-[var(--card)] border border-[var(--bd)]"
                   aria-hidden="true"
                 />
               )}
               <div className="relative z-10 flex items-center gap-3.5 min-w-0">
-                <span className="text-xs font-semibold tabular-nums text-[var(--mut)] w-5 shrink-0">
+                <span
+                  className={`text-xs font-mono font-medium tabular-nums w-5 shrink-0 transition-colors ${
+                    isSelected ? 'text-[var(--editorial-accent)]' : 'text-[var(--mut)]'
+                  }`}
+                >
                   0{idx + 1}
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-[var(--surf)] border border-[var(--bd)]/80 flex items-center justify-center shrink-0">
@@ -311,7 +340,7 @@ export function ModelFamilyLedger({
               <ArrowRight
                 className={`relative z-10 w-3.5 h-3.5 shrink-0 transition-all duration-200 ${
                   isSelected
-                    ? 'opacity-100 translate-x-0 text-[var(--ac)]'
+                    ? 'opacity-100 translate-x-0 text-[var(--editorial-accent)]'
                     : 'opacity-0 -translate-x-1 group-hover:opacity-60 group-hover:translate-x-0'
                 }`}
               />
@@ -324,7 +353,7 @@ export function ModelFamilyLedger({
       <div
         ref={dossierRef}
         onPointerMove={handlePointerMove}
-        className="spotlight-card lg:col-span-7 relative rounded-[28px] bg-[var(--card)] border border-[var(--bd)] p-7 sm:p-10 flex flex-col justify-between gap-8 overflow-hidden shadow-[0_20px_48px_-30px_rgba(24,23,21,0.18)] dark:shadow-[0_24px_56px_-28px_rgba(0,0,0,0.65)]"
+        className="spotlight-card lg:col-span-7 relative rounded-[24px] bg-[var(--card)] border border-[var(--bd)] p-7 sm:p-10 flex flex-col justify-between gap-8 overflow-hidden"
       >
         <AnimatePresence mode="wait">
           {active && (
@@ -351,9 +380,17 @@ export function ModelFamilyLedger({
                   <span className="mx-2 text-[var(--bd)]" aria-hidden="true">
                     ·
                   </span>
-                  <span>{isTr ? 'Otomatik efor yönlendirme' : 'Adaptive effort routing'}</span>
+                  <span>
+                    {isUltraCode
+                      ? isTr
+                        ? 'Kodlamaya özel mimari'
+                        : 'Dedicated coding engine'
+                      : isTr
+                        ? 'Otomatik efor yönlendirme'
+                        : 'Adaptive effort routing'}
+                  </span>
                 </p>
-                <h3 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[var(--tx)] text-balance">
+                <h3 className="font-display text-2xl sm:text-[2rem] font-medium tracking-[-0.025em] text-[var(--tx)] text-balance">
                   {active.name}
                 </h3>
               </div>
@@ -363,18 +400,21 @@ export function ModelFamilyLedger({
               </p>
 
               {/* Calm Qualitative Profile Bars */}
-              <div className="pt-2 space-y-3 max-w-lg">
+              <div className="pt-2 space-y-3.5 max-w-lg">
                 {profileAxes.map((axis) => (
                   <div key={axis.label} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[var(--tx)]/82">{axis.label}</span>
+                      <span className="font-medium text-[var(--tx)]/85">{axis.label}</span>
+                      <span className="font-mono text-[11px] tabular-nums text-[var(--mut)]">
+                        {axis.value}
+                      </span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-[var(--surf)] overflow-hidden">
                       <motion.div
                         initial={false}
                         animate={{ width: `${axis.value}%` }}
                         transition={LIQUID_SPRING}
-                        className="h-full rounded-full bg-[var(--ac)]/85"
+                        className="h-full rounded-full bg-[var(--editorial-accent)]"
                       />
                     </div>
                   </div>
@@ -414,7 +454,7 @@ function renderSlashHighlight(text: string) {
   return (
     <>
       “
-      <span className="text-[15px] font-semibold text-[var(--ac)] mr-1">
+      <span className="font-mono text-[14px] font-semibold text-[var(--editorial-accent)] mr-1">
         {match[1]}
       </span>
       <span>{match[2]}”</span>
@@ -475,12 +515,12 @@ export function InteractiveDayChapters({
                 <motion.span
                   layoutId="landing-day-chapter-active"
                   transition={LIQUID_MORPH}
-                  className="absolute inset-0 rounded-2xl bg-[var(--card)] border border-[var(--tx)]/20 shadow-[0_12px_28px_-20px_rgba(24,23,21,0.18)] dark:shadow-[0_14px_32px_-20px_rgba(0,0,0,0.6)]"
+                  className="absolute inset-0 rounded-2xl bg-[var(--card)] border border-[var(--tx)]/22"
                   aria-hidden="true"
                 />
               )}
               <div className="relative z-10 space-y-1">
-                <span className="block text-xs tabular-nums text-[var(--ac)] font-semibold">
+                <span className="block text-xs font-mono tabular-nums text-[var(--editorial-accent)] font-medium">
                   {item.time}
                 </span>
                 <p className="text-sm font-semibold tracking-tight text-[var(--tx)] leading-snug line-clamp-1">
@@ -493,7 +533,7 @@ export function InteractiveDayChapters({
       </div>
 
       {/* Focused Editorial Dialogue Stage */}
-      <div className="rounded-[28px] bg-[var(--card)] border border-[var(--bd)] p-6 sm:p-10 shadow-[0_18px_46px_-30px_rgba(24,23,21,0.16)] dark:shadow-[0_24px_56px_-28px_rgba(0,0,0,0.62)]">
+      <div className="rounded-[24px] bg-[var(--card)] border border-[var(--bd)] p-6 sm:p-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeIdx}
@@ -504,14 +544,14 @@ export function InteractiveDayChapters({
             className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start"
           >
             <div className="lg:col-span-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-[var(--mut)] tabular-nums font-medium">
-                <span className="text-[var(--ac)] font-semibold">{current.time}</span>
+              <div className="flex items-center gap-2 text-xs text-[var(--mut)] font-mono tabular-nums font-medium">
+                <span className="text-[var(--editorial-accent)] font-semibold">{current.time}</span>
                 <span aria-hidden="true">·</span>
                 <span>
                   0{activeIdx + 1} / 0{items.length}
                 </span>
               </div>
-              <h3 className="text-xl sm:text-2xl font-semibold tracking-[-0.02em] text-[var(--tx)] text-balance">
+              <h3 className="font-display text-xl sm:text-2xl font-medium tracking-[-0.02em] text-[var(--tx)] text-balance">
                 {current.title}
               </h3>
             </div>
@@ -590,17 +630,19 @@ export function HorizonClosingBand({
   onStart: () => void;
 }) {
   const prefersReducedMotion = useReducedMotion();
+  const isCoarsePointer = useIsCoarsePointer();
+  const disableScrollMotion = Boolean(prefersReducedMotion) || isCoarsePointer;
   const bandRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: bandRef,
     offset: ['start end', 'end start'],
   });
-  const rawRot = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [-18, 22]);
+  const rawRot = useTransform(scrollYProgress, [0, 1], disableScrollMotion ? [0, 0] : [-18, 22]);
   const smoothRot = useSpring(rawRot, LIQUID_SCROLL_SPRING);
   const rawCounterRot = useTransform(
     scrollYProgress,
     [0, 1],
-    prefersReducedMotion ? [0, 0] : [16, -20]
+    disableScrollMotion ? [0, 0] : [16, -20]
   );
   const smoothCounterRot = useSpring(rawCounterRot, LIQUID_SCROLL_SPRING);
   const isDark = theme === 'dark';
@@ -612,7 +654,7 @@ export function HorizonClosingBand({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={EDITORIAL_VIEWPORT}
       transition={{ duration: 0.56, ease: EDITORIAL_EASE }}
-      className="relative mt-20 rounded-[32px] border border-[var(--bd)] bg-[var(--card)] overflow-hidden shadow-[0_20px_52px_-30px_rgba(24,23,21,0.18)] dark:shadow-[0_26px_60px_-28px_rgba(0,0,0,0.68)]"
+      className="relative mt-20 rounded-[28px] border border-[var(--bd)] bg-[var(--card)] overflow-hidden"
     >
       {/* Tonal Atmospheric Horizon Wash */}
       <div
@@ -620,8 +662,8 @@ export function HorizonClosingBand({
         className="pointer-events-none absolute inset-0"
         style={{
           background: isDark
-            ? 'radial-gradient(75% 85% at 50% 0%, rgba(116, 140, 178, 0.16) 0%, rgba(24, 23, 21, 0) 74%)'
-            : 'radial-gradient(75% 85% at 50% 0%, rgba(214, 198, 174, 0.34) 0%, rgba(255, 255, 255, 0) 74%)',
+            ? 'radial-gradient(75% 85% at 50% 0%, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0) 74%)'
+            : 'radial-gradient(75% 85% at 50% 0%, rgba(0, 0, 0, 0.05) 0%, rgba(255, 255, 255, 0) 74%)',
         }}
       />
 
@@ -699,7 +741,7 @@ export function HorizonClosingBand({
         <div className="inline-flex items-center justify-center mb-5">
           <LongclawLogo className="w-9 h-9 text-[var(--tx)]" />
         </div>
-        <h3 className="text-2xl sm:text-4xl font-semibold tracking-[-0.03em] text-[var(--tx)] text-balance">
+        <h3 className="font-display text-2xl sm:text-4xl font-medium tracking-[-0.025em] text-[var(--tx)] text-balance">
           {title}
         </h3>
         <p className="mt-3.5 text-[15px] sm:text-base text-[var(--mut)] leading-relaxed max-w-lg mx-auto">
@@ -709,10 +751,10 @@ export function HorizonClosingBand({
           <motion.button
             type="button"
             onClick={onStart}
-            whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
-            whileTap={prefersReducedMotion ? undefined : { scale: 0.975 }}
+            whileHover={prefersReducedMotion ? undefined : { y: -1.5, scale: 1.01 }}
+            whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
             transition={LIQUID_TAP}
-            className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-95 font-medium text-sm shadow-[0_14px_34px_-12px_rgba(24,23,21,0.34)] cursor-pointer whitespace-nowrap"
+            className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-92 font-medium text-sm cursor-pointer whitespace-nowrap"
           >
             <span>{ctaLabel}</span>
             <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />

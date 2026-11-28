@@ -290,7 +290,7 @@ export function Clawing11ProLogo({ className = 'w-[19px] h-[19px]' }: { classNam
 }
 
 /**
- * Longclaw Clawing 1 Pro: Signature interlocking rings in heritage amber-bronze gradient
+ * Longclaw Clawing 1 Pro: Signature interlocking rings in monochrome obsidian-silver gradient
  */
 export function ClawingProLogo({ className = 'w-[19px] h-[19px]' }: { className?: string }) {
   const id = useSafeId();
@@ -301,14 +301,14 @@ export function ClawingProLogo({ className = 'w-[19px] h-[19px]' }: { className?
     <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <defs>
         <linearGradient id={ring1} x1="3" y1="3" x2="28" y2="29" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#B45309" />
-          <stop offset="52%" stopColor="#D97706" />
-          <stop offset="100%" stopColor="#FBBF24" />
+          <stop offset="0%" stopColor="#111111" />
+          <stop offset="52%" stopColor="#525252" />
+          <stop offset="100%" stopColor="#A3A3A3" />
         </linearGradient>
         <linearGradient id={ring2} x1="29" y1="4" x2="4" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FDE68A" />
-          <stop offset="50%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#C2410C" />
+          <stop offset="0%" stopColor="#E5E5E5" />
+          <stop offset="50%" stopColor="#737373" />
+          <stop offset="100%" stopColor="#171717" />
         </linearGradient>
       </defs>
       <SculptedRings
@@ -316,7 +316,7 @@ export function ClawingProLogo({ className = 'w-[19px] h-[19px]' }: { className?
         stroke2={`url(#${ring2})`}
         strokeWidth={3.4}
         highlightOpacity={0.36}
-        highlightColor="#FFFBEB"
+        highlightColor="#FFFFFF"
       />
     </svg>
   );
@@ -386,6 +386,51 @@ export function Clawing11Logo({ className = 'w-[19px] h-[19px]' }: { className?:
   );
 }
 
+/**
+ * LongClaw UltraCode 1: Dedicated coding-engine emblem — interlocking rings in electric cyan-emerald
+ * terminal gradient with a crisp centered code chevron motif.
+ */
+export function UltraCode1Logo({ className = 'w-[19px] h-[19px]' }: { className?: string }) {
+  const id = useSafeId();
+  const ring1 = `uc1-r1-${id}`;
+  const ring2 = `uc1-r2-${id}`;
+  const glyph = `uc1-g-${id}`;
+
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={ring1} x1="3" y1="3" x2="29" y2="29" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#059669" />
+          <stop offset="48%" stopColor="#06B6D4" />
+          <stop offset="100%" stopColor="#3B82F6" />
+        </linearGradient>
+        <linearGradient id={ring2} x1="29" y1="4" x2="4" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#34D399" />
+          <stop offset="52%" stopColor="#0EA5E9" />
+          <stop offset="100%" stopColor="#4F46E5" />
+        </linearGradient>
+        <linearGradient id={glyph} x1="11" y1="12" x2="21" y2="20" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#10B981" />
+          <stop offset="100%" stopColor="#38BDF8" />
+        </linearGradient>
+      </defs>
+      <SculptedRings
+        stroke1={`url(#${ring1})`}
+        stroke2={`url(#${ring2})`}
+        strokeWidth={3.35}
+        highlightOpacity={0.4}
+      />
+      <path
+        d="M14.2 13.3L11.6 16L14.2 18.7M17.8 13.3L20.4 16L17.8 18.7"
+        stroke={`url(#${glyph})`}
+        strokeWidth="1.85"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ModelLogo({
   modelId,
   className = 'w-[19px] h-[19px]',
@@ -393,6 +438,9 @@ export function ModelLogo({
   modelId: ChatModelId;
   className?: string;
 }) {
+  if (modelId === 'longclaw-ultracode-1') {
+    return <UltraCode1Logo className={className} />;
+  }
   if (modelId === 'longclaw-clawing-1.2-ultra') {
     return <Clawing12UltraLogo className={className} />;
   }

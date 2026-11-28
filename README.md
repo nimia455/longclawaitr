@@ -2,6 +2,24 @@
 
 A calm AI workspace for writing, coding with live preview, image generation, and Google Workspace commands.
 
+## Deploy to Vercel (`https://longclaw.vercel.app`)
+
+This project is pre-configured for full-stack Vercel deployment (`vercel.json` + `api/index.ts` serverless backend + Vite static frontend in `dist/`).
+
+### 1. Import & Deploy on Vercel
+1. Push this repository to GitHub and import it in **Vercel → Add New Project**.
+2. Keep the detected **Vite** settings (`Build Command: npm run build`, `Output Directory: dist`).
+3. Add the following **Environment Variables** in **Vercel → Project Settings → Environment Variables**:
+   - `GEMINI_API_KEY` *(required)* — your primary Gemini API key
+   - `GEMINI_API_KEY_2` *(optional)* — fallback Gemini API key
+   - `GEMINI_API_KEY_3` *(optional)* — second fallback Gemini API key
+   - `APP_URL` — `https://longclaw.vercel.app`
+4. Deploy. All `/api/*` endpoints (`/api/chat`, `/api/generate-image`, `/api/tts`, `/api/voice-chat`, `/api/transcribe`, `/api/workspace-command`, `/api/name-chat`, `/api/image-proxy`, `/api/health`) run automatically as same-origin Vercel Serverless Functions.
+
+### 2. Authorize `longclaw.vercel.app` in Firebase & Google OAuth
+1. Open **Firebase Console → Authentication → Settings → Authorized domains** and add `longclaw.vercel.app` so Google, Apple, and email authentication work on your Vercel domain.
+2. If you use the Google Workspace connector, also add `https://longclaw.vercel.app` under **Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized JavaScript origins**.
+
 ## Deploy to GitHub Pages (Free, No Billing Required)
 
 This repository includes an automatic GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) pre-configured for both default `*.github.io` URLs and custom domains.

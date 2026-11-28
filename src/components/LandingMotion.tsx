@@ -128,6 +128,7 @@ export function ParallaxShowcaseCard({
   const imageY = useSpring(rawImageY, LIQUID_SCROLL_SPRING);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = cardRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -143,7 +144,7 @@ export function ParallaxShowcaseCard({
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={EDITORIAL_VIEWPORT}
       transition={{ duration: 0.56, delay, ease: EDITORIAL_EASE }}
-      className="spotlight-card group relative rounded-3xl bg-[var(--card)] border border-[var(--bd)] overflow-hidden flex flex-col transition-colors duration-300 hover:border-[var(--tx)]/22 shadow-[0_14px_38px_-28px_rgba(24,23,21,0.16)] dark:shadow-[0_18px_46px_-26px_rgba(0,0,0,0.62)]"
+      className="spotlight-card surface-3d group relative rounded-3xl overflow-hidden flex flex-col transition-colors duration-300 hover:border-[var(--tx)]/20"
     >
       <div className="relative aspect-[16/10] bg-[var(--surf)] overflow-hidden">
         <motion.div
@@ -217,6 +218,7 @@ export function SpotlightModelCard({
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = cardRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -237,11 +239,11 @@ export function SpotlightModelCard({
         y: { duration: 0.46, delay: index * 0.055, ease: EDITORIAL_EASE },
         scale: { duration: 0.46, delay: index * 0.055, ease: EDITORIAL_EASE },
       }}
-      className="spotlight-card group relative rounded-2xl bg-[var(--card)] border border-[var(--bd)] hover:border-[var(--tx)]/24 p-5 sm:p-6 space-y-2.5 overflow-hidden transition-colors duration-200 shadow-[0_10px_28px_-22px_rgba(24,23,21,0.16)] dark:shadow-[0_14px_34px_-22px_rgba(0,0,0,0.6)]"
+      className="spotlight-card surface-3d group relative rounded-2xl hover:border-[var(--tx)]/22 p-5 sm:p-6 space-y-2.5 overflow-hidden transition-colors duration-200"
     >
       {/* Crisp top hairline accent sweep on hover */}
       <span
-        className="pointer-events-none absolute inset-x-5 top-0 h-[1.5px] bg-[var(--ac)]/55 origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"
+        className="pointer-events-none absolute inset-x-5 top-0 h-[1.5px] bg-[var(--editorial-accent)]/70 origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"
         aria-hidden="true"
       />
 
@@ -273,7 +275,7 @@ function renderSlashHighlight(text: string) {
   return (
     <>
       “
-      <span className="font-mono text-[13.5px] font-semibold text-[var(--ac)] mr-1">
+      <span className="font-mono text-[13.5px] font-semibold text-[var(--editorial-accent)] mr-1">
         {match[1]}
       </span>
       <span>{match[2]}”</span>
@@ -316,7 +318,7 @@ export function ScrollTimeline({
         {!prefersReducedMotion && (
           <motion.div
             style={{ scaleY: spineScaleY }}
-            className="w-full h-full bg-[var(--ac)] origin-top will-change-transform"
+            className="w-full h-full bg-[var(--editorial-accent)] origin-top will-change-transform"
           />
         )}
       </div>
@@ -341,10 +343,10 @@ export function ScrollTimeline({
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={EDITORIAL_VIEWPORT}
               transition={{ duration: 0.36, delay: 0.08, ease: EDITORIAL_EASE }}
-              className="hidden md:flex items-center justify-center absolute left-[4px] top-[44px] w-[15px] h-[15px] rounded-full bg-[var(--card)] border border-[var(--bd)] group-hover:border-[var(--ac)] transition-colors duration-200"
+              className="hidden md:flex items-center justify-center absolute left-[4px] top-[44px] w-[15px] h-[15px] rounded-full bg-[var(--card)] border border-[var(--bd)] group-hover:border-[var(--editorial-accent)] transition-colors duration-200"
               aria-hidden="true"
             >
-              <span className="w-[5px] h-[5px] rounded-full bg-[var(--tx)]/45 group-hover:bg-[var(--ac)] group-hover:scale-125 transition-all duration-200" />
+              <span className="w-[5px] h-[5px] rounded-full bg-[var(--tx)]/45 group-hover:bg-[var(--editorial-accent)] group-hover:scale-125 transition-all duration-200" />
             </motion.span>
 
             <motion.div
@@ -354,7 +356,7 @@ export function ScrollTimeline({
               transition={{ duration: 0.46, delay: 0.05, ease: EDITORIAL_EASE }}
               className="md:col-span-4 space-y-1.5"
             >
-              <span className="block font-mono text-xs tabular-nums text-[var(--ac)]/85 font-medium">
+              <span className="block font-mono text-xs tabular-nums text-[var(--editorial-accent)] font-medium">
                 {item.time}
               </span>
               <h3 className="font-soft text-lg font-semibold text-[var(--tx)] tracking-tight">
@@ -403,10 +405,10 @@ export function AnimatedCheckItem({
       className="group flex items-start gap-3 py-1 text-[15px] text-[var(--tx)]/88 leading-relaxed"
     >
       <span
-        className="w-5 h-5 rounded-full border border-[var(--bd)] bg-[var(--surf)]/75 group-hover:border-[var(--ac)]/55 flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-200"
+        className="w-5 h-5 rounded-full border border-[var(--bd)] bg-[var(--surf)]/75 group-hover:border-[var(--editorial-accent)]/60 flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-200"
         aria-hidden="true"
       >
-        <svg className="w-3 h-3 text-[var(--ac)]" viewBox="0 0 14 14" fill="none">
+        <svg className="w-3 h-3 text-[var(--editorial-accent)]" viewBox="0 0 14 14" fill="none">
           <motion.path
             d="M3 7.4L5.8 10.2L11.2 4.2"
             stroke="currentColor"
@@ -503,7 +505,7 @@ export function ScrollMotifClosingCta({
             cy="90"
             r="68"
             fill="none"
-            stroke="var(--ac)"
+            stroke="var(--editorial-accent)"
             strokeWidth="1"
             strokeDasharray="4 6"
           />
@@ -518,7 +520,7 @@ export function ScrollMotifClosingCta({
           whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
           whileTap={prefersReducedMotion ? undefined : { scale: 0.975 }}
           transition={LIQUID_TAP}
-          className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-95 font-medium text-sm shadow-[0_14px_34px_-12px_rgba(24,23,21,0.34)] cursor-pointer whitespace-nowrap"
+          className="btn-3d-primary group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full font-medium text-sm cursor-pointer whitespace-nowrap"
         >
           <span>{label}</span>
           <ArrowRight className="w-4 h-4 transition-transform duration-200 ease-out group-hover:translate-x-1" />

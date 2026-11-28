@@ -211,7 +211,7 @@ export function WorkspaceConfirmMutationDialog({
             <div className="flex items-start gap-3">
               {meta.icon}
               <div className="flex-1 min-w-0">
-                <h4 className="font-serif-fraunces text-lg font-semibold leading-snug">
+                <h4 className="font-display text-lg font-semibold leading-snug">
                   {meta.title}
                 </h4>
                 <p className="text-xs text-[var(--mut)] mt-1 leading-relaxed">{meta.desc}</p>
@@ -772,7 +772,7 @@ export function ConnectorsModal({
               <div className="px-5 pt-5 pb-4 sm:px-7 sm:pt-6 border-b border-[var(--bd)]/70 flex items-start justify-between gap-3 shrink-0">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                    <h3 className="font-serif-fraunces text-xl sm:text-2xl font-semibold tracking-tight">
+                    <h3 className="font-display text-xl sm:text-2xl font-semibold tracking-tight">
                       {cText.title}
                     </h3>
                     <span
@@ -832,7 +832,7 @@ export function ConnectorsModal({
                         }}
                         className={`inline-flex items-center gap-2 py-3 border-b-2 -mb-[1px] text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                           isSelected
-                            ? 'border-[var(--tx)] text-[var(--tx)] font-semibold'
+                            ? 'border-[var(--editorial-accent)] text-[var(--tx)] font-semibold'
                             : 'border-transparent text-[var(--mut)] hover:text-[var(--tx)]'
                         }`}
                       >
@@ -939,7 +939,7 @@ export function ConnectorsModal({
                             onClick={() => setGmailSubTab('inbox')}
                             className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
                               gmailSubTab === 'inbox'
-                                ? 'border-[var(--tx)] text-[var(--tx)]'
+                                ? 'border-[var(--editorial-accent)] text-[var(--tx)]'
                                 : 'border-transparent text-[var(--mut)] hover:text-[var(--tx)]'
                             }`}
                           >
@@ -950,7 +950,7 @@ export function ConnectorsModal({
                             onClick={() => setGmailSubTab('compose')}
                             className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
                               gmailSubTab === 'compose'
-                                ? 'border-[var(--tx)] text-[var(--tx)]'
+                                ? 'border-[var(--editorial-accent)] text-[var(--tx)]'
                                 : 'border-transparent text-[var(--mut)] hover:text-[var(--tx)]'
                             }`}
                           >

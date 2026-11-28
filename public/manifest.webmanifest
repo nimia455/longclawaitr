@@ -1,12 +1,12 @@
 {
   "name": "Longclaw",
   "short_name": "Longclaw",
-  "description": "A calm AI workspace for writing, coding with live preview, image generation, and direct Google Workspace commands.",
+  "description": "A calm AI workspace with Clawing & UltraCode 1 models, live code preview, voice companion, image generation, and direct Google Workspace commands.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#FAF9F6",
-  "theme_color": "#181715",
+  "background_color": "#FFFFFF",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "./icon.svg",

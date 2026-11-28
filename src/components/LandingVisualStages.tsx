@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AnimatePresence,
   motion,
+  useInView,
   useReducedMotion,
   useScroll,
   useSpring,
@@ -9,6 +10,8 @@ import {
 } from 'motion/react';
 import { Play } from 'lucide-react';
 import type { Language } from '../lib/i18n';
+import heroAlpineLight from '../assets/images/hero_peak_massive_light_1795892666318.jpg';
+import heroAlpineDark from '../assets/images/hero_peak_massive_dark_1795892667014.jpg';
 import {
   EDITORIAL_EASE,
   EDITORIAL_VIEWPORT,
@@ -16,13 +19,13 @@ import {
   LIQUID_MORPH,
   LIQUID_SCROLL_SPRING,
   LIQUID_SPRING,
+  useIsCoarsePointer,
 } from '../lib/motion';
 
 /**
  * HeroContourAtmosphere
- * Full-bleed photo-free architectural horizon & dawn/twilight atmospheric field.
- * Designed around a grand centered hero showcase with scroll-linked concentric meridians
- * and gentle topographic contour sweeps.
+ * Full-bleed monumental monochrome alpine mountain backdrop for the hero ("Daha hızlı düşün")
+ * with smooth light/dark crossfade, subtle scroll parallax, and centered legibility scrims.
  */
 export function HeroContourAtmosphere({
   theme,
@@ -32,159 +35,75 @@ export function HeroContourAtmosphere({
   scrollTargetRef: React.RefObject<HTMLElement | null>;
 }) {
   const prefersReducedMotion = useReducedMotion();
+  const isCoarsePointer = useIsCoarsePointer();
+  const disableParallax = Boolean(prefersReducedMotion) || isCoarsePointer;
   const { scrollYProgress } = useScroll({
     target: scrollTargetRef,
     offset: ['start start', 'end start'],
   });
 
-  const rawBackY = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 56]);
-  const rawMidY = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 28]);
-  const rawArcRot = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 18]);
-
+  const rawBackY = useTransform(scrollYProgress, [0, 1], disableParallax ? [0, 0] : [0, 48]);
   const backY = useSpring(rawBackY, LIQUID_SCROLL_SPRING);
-  const midY = useSpring(rawMidY, LIQUID_SCROLL_SPRING);
-  const arcRot = useSpring(rawArcRot, LIQUID_SCROLL_SPRING);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const isDark = theme === 'dark';
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 overflow-hidden select-none"
+      className="pointer-events-none absolute inset-0 overflow-hidden select-none bg-[var(--bg)]"
       aria-hidden="true"
     >
-      {/* Serene Dawn / Blue-Hour Atmospheric Wash */}
+      {/* Monumental Full-Frame Monochrome Mountain Layer (Light & Dark Crossfade) */}
+      {!imgFailed && (
+        <motion.div
+          style={{ y: backY }}
+          className="absolute -inset-y-12 inset-x-0 will-change-transform"
+        >
+          <img
+            src={heroAlpineLight}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
+            className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.08] transition-opacity duration-700 ${
+              isDark ? 'opacity-0' : 'opacity-95'
+            }`}
+          />
+          <img
+            src={heroAlpineDark}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
+            className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.08] transition-opacity duration-700 ${
+              isDark ? 'opacity-95' : 'opacity-0'
+            }`}
+          />
+        </motion.div>
+      )}
+
+      {/* Measured Centered Headline Legibility Scrim (Light: Pure White Veil; Mountains Bold Around Edges) */}
       <div
         className={`absolute inset-0 transition-opacity duration-700 ${
           isDark ? 'opacity-0' : 'opacity-100'
         }`}
         style={{
           background:
-            'radial-gradient(66% 58% at 50% 8%, rgba(224, 206, 180, 0.44) 0%, rgba(238, 228, 214, 0.22) 44%, rgba(250, 249, 246, 0) 76%), radial-gradient(46% 48% at 86% 24%, rgba(196, 214, 232, 0.3) 0%, rgba(250, 249, 246, 0) 70%), radial-gradient(46% 48% at 14% 26%, rgba(236, 216, 192, 0.28) 0%, rgba(250, 249, 246, 0) 70%)',
+            'radial-gradient(56% 42% at 50% 24%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.62) 52%, rgba(255, 255, 255, 0.22) 100%), linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.28) 46%, rgba(255, 255, 255, 0.36) 80%, rgba(255, 255, 255, 0.96) 100%)',
         }}
       />
+
+      {/* Measured Centered Headline Legibility Scrim (Dark: Deep Pure Black Veil; Summit Dramatic Behind) */}
       <div
         className={`absolute inset-0 transition-opacity duration-700 ${
           isDark ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
           background:
-            'radial-gradient(64% 56% at 50% 6%, rgba(102, 128, 168, 0.22) 0%, rgba(52, 64, 86, 0.12) 45%, rgba(17, 17, 16, 0) 76%), radial-gradient(44% 46% at 84% 26%, rgba(176, 134, 98, 0.12) 0%, rgba(17, 17, 16, 0) 70%), radial-gradient(44% 46% at 16% 26%, rgba(92, 114, 150, 0.14) 0%, rgba(17, 17, 16, 0) 70%)',
+            'radial-gradient(56% 42% at 50% 24%, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.44) 54%, rgba(0, 0, 0, 0.26) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.56) 0%, rgba(0, 0, 0, 0.26) 46%, rgba(0, 0, 0, 0.38) 80%, rgba(0, 0, 0, 0.96) 100%)',
         }}
       />
 
-      {/* Precision Architectural Dot Matrix */}
-      <div
-        className="absolute inset-0 opacity-[0.24] dark:opacity-[0.14]"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 1px 1px, var(--bd) 1px, transparent 0)',
-          backgroundSize: '34px 34px',
-          maskImage:
-            'radial-gradient(76% 68% at 50% 28%, black 18%, transparent 86%)',
-          WebkitMaskImage:
-            'radial-gradient(76% 68% at 50% 28%, black 18%, transparent 86%)',
-        }}
-      />
-
-      {/* Centered Celestial Meridian Rings & Distant Contours */}
-      <motion.svg
-        style={{ y: backY }}
-        viewBox="0 0 1440 860"
-        preserveAspectRatio="xMidYMid slice"
-        className="absolute inset-0 w-full h-full will-change-transform"
-      >
-        <motion.g
-          style={{
-            transformOrigin: '720px 240px',
-            rotate: arcRot,
-          }}
-        >
-          <circle
-            cx="720"
-            cy="240"
-            r="240"
-            fill="none"
-            stroke="var(--tx)"
-            strokeOpacity={isDark ? 0.1 : 0.08}
-            strokeWidth="1"
-            strokeDasharray="3 9"
-          />
-          <circle
-            cx="720"
-            cy="240"
-            r="380"
-            fill="none"
-            stroke="var(--ac)"
-            strokeOpacity={isDark ? 0.14 : 0.1}
-            strokeWidth="0.95"
-          />
-          <circle
-            cx="720"
-            cy="240"
-            r="530"
-            fill="none"
-            stroke="var(--tx)"
-            strokeOpacity={isDark ? 0.07 : 0.06}
-            strokeWidth="0.85"
-            strokeDasharray="6 12"
-          />
-        </motion.g>
-
-        {/* Quiet Horizon Axis Lines */}
-        <line
-          x1="0"
-          y1="240"
-          x2="1440"
-          y2="240"
-          stroke="var(--bd)"
-          strokeOpacity="0.45"
-          strokeDasharray="3 8"
-          strokeWidth="0.85"
-        />
-
-        {/* Flowing Architectural Contour Curves */}
-        <motion.path
-          d="M-40 612 C 220 540, 440 644, 720 572 C 980 506, 1180 598, 1480 518"
-          fill="none"
-          stroke="var(--tx)"
-          strokeOpacity={isDark ? 0.13 : 0.1}
-          strokeWidth="1.2"
-          animate={prefersReducedMotion ? undefined : { y: [0, -6, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.path
-          d="M-40 662 C 250 594, 480 688, 760 618 C 1020 554, 1210 640, 1480 568"
-          fill="none"
-          stroke="var(--ac)"
-          strokeOpacity={isDark ? 0.2 : 0.14}
-          strokeWidth="1.15"
-          animate={prefersReducedMotion ? undefined : { y: [0, 7, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      </motion.svg>
-
-      {/* Foreground Sculpted Ridge Layer */}
-      <motion.svg
-        style={{ y: midY }}
-        viewBox="0 0 1440 860"
-        preserveAspectRatio="xMidYMid slice"
-        className="absolute inset-0 w-full h-full will-change-transform"
-      >
-        <path
-          d="M-40 712 C 280 650, 540 732, 830 666 C 1090 608, 1270 686, 1480 628 L 1480 880 L -40 880 Z"
-          fill="var(--surf)"
-          fillOpacity={isDark ? 0.34 : 0.54}
-        />
-        <path
-          d="M-40 712 C 280 650, 540 732, 830 666 C 1090 608, 1270 686, 1480 628"
-          fill="none"
-          stroke="var(--bd)"
-          strokeWidth="1.1"
-        />
-      </motion.svg>
-
-      {/* Seamless Bottom Fade into Page Canvas */}
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/75 to-transparent" />
+      {/* Seamless Bottom Fade into Pure White / Pure Black Page Canvas */}
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/65 to-transparent" />
     </div>
   );
 }
@@ -208,22 +127,24 @@ export function ReasoningFlowShowcaseCard({
 }) {
   const prefersReducedMotion = useReducedMotion();
   const cardRef = useRef<HTMLElement | null>(null);
+  const isInView = useInView(cardRef, { amount: 0.15 });
   const [tier, setTier] = useState<EffortTierId>('balanced');
   const [userSelected, setUserSelected] = useState(false);
 
   const isTr = lang === 'tr';
 
-  // Gently cycle through effort profiles until user clicks one
+  // Gently cycle through effort profiles only while visible on screen
   useEffect(() => {
-    if (prefersReducedMotion || userSelected) return;
+    if (prefersReducedMotion || userSelected || !isInView) return;
     const order: EffortTierId[] = ['quick', 'balanced', 'deep'];
     const id = window.setInterval(() => {
       setTier((prev) => order[(order.indexOf(prev) + 1) % order.length]);
     }, 4600);
     return () => window.clearInterval(id);
-  }, [prefersReducedMotion, userSelected]);
+  }, [prefersReducedMotion, userSelected, isInView]);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = cardRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -336,7 +257,7 @@ export function ReasoningFlowShowcaseCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={EDITORIAL_VIEWPORT}
       transition={{ duration: 0.56, ease: EDITORIAL_EASE }}
-      className="spotlight-card relative rounded-[28px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden flex flex-col justify-between transition-colors duration-300 hover:border-[var(--tx)]/22 shadow-[0_16px_42px_-28px_rgba(24,23,21,0.16)] dark:shadow-[0_20px_50px_-26px_rgba(0,0,0,0.62)]"
+      className="spotlight-card relative rounded-[24px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden flex flex-col justify-between transition-colors duration-300 hover:border-[var(--tx)]/24"
     >
       {/* Interactive Architectural Reasoning Canvas */}
       <div className="relative bg-[var(--surf)]/55 border-b border-[var(--bd)]/80 p-5 sm:p-7 flex flex-col gap-5">
@@ -428,7 +349,7 @@ export function ReasoningFlowShowcaseCard({
                     key={d}
                     d={d}
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="2.2"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
@@ -443,7 +364,7 @@ export function ReasoningFlowShowcaseCard({
 
                 {/* Smooth Signal Dot Gliding Along the Active Route */}
                 {!prefersReducedMotion && (
-                  <circle r="3.4" fill="var(--ac)" opacity="0.92">
+                  <circle r="3.4" fill="var(--editorial-accent)" opacity="0.95">
                     <animateMotion
                       dur={tier === 'quick' ? '1.8s' : tier === 'balanced' ? '2.4s' : '3.0s'}
                       repeatCount="indefinite"
@@ -466,14 +387,14 @@ export function ReasoningFlowShowcaseCard({
                   <motion.circle
                     r={isActive ? 15 : 11}
                     fill="var(--card)"
-                    stroke={isActive ? 'var(--ac)' : 'var(--bd)'}
+                    stroke={isActive ? 'var(--editorial-accent)' : 'var(--bd)'}
                     strokeWidth={isActive ? 1.8 : 1.2}
                     animate={{ scale: isActive ? 1 : 0.92 }}
                     transition={LIQUID_SPRING}
                   />
                   <motion.circle
                     r={isActive ? 4.5 : 2.5}
-                    fill={isActive ? 'var(--ac)' : 'var(--mut)'}
+                    fill={isActive ? 'var(--editorial-accent)' : 'var(--mut)'}
                     fillOpacity={isActive ? 1 : 0.45}
                     animate={{ scale: isActive ? 1 : 0.85 }}
                     transition={LIQUID_SPRING}
@@ -509,7 +430,7 @@ export function ReasoningFlowShowcaseCard({
                   className="py-2.5 flex items-center justify-between gap-3 text-xs"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-semibold tabular-nums text-[var(--ac)] shrink-0">
+                    <span className="font-mono font-medium tabular-nums text-[var(--editorial-accent)] shrink-0">
                       {step.index}
                     </span>
                     <span className="text-[var(--tx)] font-medium truncate">{step.text}</span>
@@ -559,6 +480,7 @@ export function LiveCodeShowcaseCard({
   const isTr = lang === 'tr';
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = cardRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -589,7 +511,7 @@ export function LiveCodeShowcaseCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={EDITORIAL_VIEWPORT}
       transition={{ duration: 0.56, delay: 0.08, ease: EDITORIAL_EASE }}
-      className="spotlight-card relative rounded-[28px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden flex flex-col transition-colors duration-300 hover:border-[var(--tx)]/22 shadow-[0_16px_42px_-28px_rgba(24,23,21,0.16)] dark:shadow-[0_20px_50px_-26px_rgba(0,0,0,0.62)]"
+      className="spotlight-card relative rounded-[24px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden flex flex-col transition-colors duration-300 hover:border-[var(--tx)]/24"
     >
       {/* Interactive Mini Code & Live Render Stage */}
       <div className="bg-[var(--surf)]/55 border-b border-[var(--bd)]/80 p-5 sm:p-6 space-y-4">
@@ -636,7 +558,7 @@ export function LiveCodeShowcaseCard({
         </div>
 
         {/* Clean Code Strip */}
-        <div className="rounded-xl bg-[var(--bg)] border border-[var(--bd)]/85 px-3.5 py-3 text-xs leading-[1.7] overflow-hidden">
+        <div className="rounded-xl bg-[var(--bg)] border border-[var(--bd)]/85 px-3.5 py-3 font-mono text-[11.5px] leading-[1.7] overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={preset}
@@ -653,7 +575,7 @@ export function LiveCodeShowcaseCard({
                   </span>
                   <span
                     className={
-                      i === 1 ? 'text-[var(--ac)] font-medium' : 'text-[var(--tx)]/85'
+                      i === 1 ? 'text-[var(--editorial-accent)] font-medium' : 'text-[var(--tx)]/85'
                     }
                   >
                     {line}
@@ -674,7 +596,7 @@ export function LiveCodeShowcaseCard({
                   animate={{ height: `${val}%` }}
                   transition={LIQUID_SPRING}
                   className={`w-full rounded-md ${
-                    idx === bars.length - 1 ? 'bg-[var(--ac)]' : 'bg-[var(--tx)]/18'
+                    idx === bars.length - 1 ? 'bg-[var(--editorial-accent)]' : 'bg-[var(--tx)]/16'
                   }`}
                 />
               </div>

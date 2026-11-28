@@ -7,35 +7,37 @@
 }
 
 :root {
-  /* Original Longclaw Calm Editorial — Warm Paper & Charcoal Ink */
-  --bg: #FAF9F6;
-  --surf: #F2EFEA;
+  /* Longclaw Monochrome — Pure White & Pure Black */
+  --bg: #FFFFFF;
+  --surf: #F5F5F5;
   --card: #FFFFFF;
-  --tx: #181715;
-  --mut: #6F6A62;
-  --ac: #181715;
-  --acd: #2F2D29;
-  --ac-soft: rgba(24, 23, 21, 0.06);
-  --on: #FAF9F6;
-  --bd: #E6E1D9;
-  --sh: 0 12px 32px -16px rgba(24, 23, 21, 0.12);
+  --tx: #000000;
+  --mut: #666666;
+  --ac: #000000;
+  --acd: #1A1A1A;
+  --ac-soft: rgba(0, 0, 0, 0.055);
+  --editorial-accent: #000000;
+  --editorial-accent-soft: rgba(0, 0, 0, 0.08);
+  --on: #FFFFFF;
+  --bd: #E5E5E5;
+  --sh: 0 12px 32px -18px rgba(0, 0, 0, 0.14);
   --ease-calm: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-glide: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-liquid: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Typography Tokens — Unified Plus Jakarta Sans across UI, Display & Brand */
+  /* Typography Tokens — Source Serif 4 Display + Plus Jakarta Sans UI + JetBrains Mono */
   --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-editorial: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Source Serif 4', Georgia, serif;
   --font-brand: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: light;
 }
 
-/* Turkish Latin-Extended typography — crisp ğ, ş, ı, İ, ö, ü, ç in Plus Jakarta Sans */
+/* Turkish Latin-Extended typography — full ğ, ş, ı, İ, ö, ü, ç support */
 :root[lang="tr"] {
   --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-editorial: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Source Serif 4', Georgia, serif;
 }
 
 /* Optional explicit user typography overrides from Settings */
@@ -51,35 +53,39 @@
 }
 
 [data-theme="dark"] {
-  /* Original Longclaw Calm Editorial — Deep Warm Charcoal & Ivory */
-  --bg: #111110;
-  --surf: #1A1917;
-  --card: #21201D;
-  --tx: #F4F2EC;
-  --mut: #9B958C;
-  --ac: #F4F2EC;
-  --acd: #DFDBD2;
-  --ac-soft: rgba(244, 242, 236, 0.08);
-  --on: #111110;
-  --bd: #2D2B27;
-  --sh: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+  /* Longclaw Monochrome — Pure Black & Pure White */
+  --bg: #000000;
+  --surf: #0E0E0E;
+  --card: #141414;
+  --tx: #FFFFFF;
+  --mut: #9A9A9A;
+  --ac: #FFFFFF;
+  --acd: #E5E5E5;
+  --ac-soft: rgba(255, 255, 255, 0.08);
+  --editorial-accent: #FFFFFF;
+  --editorial-accent-soft: rgba(255, 255, 255, 0.12);
+  --on: #000000;
+  --bd: #262626;
+  --sh: 0 18px 42px -18px rgba(0, 0, 0, 0.72);
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111110;
-    --surf: #1A1917;
-    --card: #21201D;
-    --tx: #F4F2EC;
-    --mut: #9B958C;
-    --ac: #F4F2EC;
-    --acd: #DFDBD2;
-    --ac-soft: rgba(244, 242, 236, 0.08);
-    --on: #111110;
-    --bd: #2D2B27;
-    --sh: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+    --bg: #000000;
+    --surf: #0E0E0E;
+    --card: #141414;
+    --tx: #FFFFFF;
+    --mut: #9A9A9A;
+    --ac: #FFFFFF;
+    --acd: #E5E5E5;
+    --ac-soft: rgba(255, 255, 255, 0.08);
+    --editorial-accent: #FFFFFF;
+    --editorial-accent-soft: rgba(255, 255, 255, 0.12);
+    --on: #000000;
+    --bd: #262626;
+    --sh: 0 18px 42px -18px rgba(0, 0, 0, 0.72);
 
     color-scheme: dark;
   }
@@ -110,64 +116,61 @@ body {
 }
 
 /* ==========================================================================
-   Original Warm Minimal Surface System (Clean Flat Editorial + Subtle Shadows)
+   Monochrome Architectural Surface System (Pure White & Pure Black)
    ========================================================================== */
 
 .canvas-tactile {
   position: relative;
 }
 
-/* Serene Atmospheric Background — Sunlit Alpine Dawn (Light) & Blue-Hour Twilight (Dark) */
+/* Monochrome Architectural Canvas (Pure White Light & Pure Black Dark) */
 .ambient-canvas {
   position: relative;
   background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 85% 55% at 12% 18%, rgba(244, 212, 178, 0.34), transparent 64%),
-    radial-gradient(ellipse 75% 50% at 88% 12%, rgba(190, 212, 234, 0.32), transparent 62%),
-    radial-gradient(ellipse 90% 60% at 50% 58%, rgba(238, 226, 208, 0.34), transparent 70%),
-    radial-gradient(ellipse 80% 50% at 85% 88%, rgba(214, 224, 236, 0.28), transparent 65%);
-  background-attachment: fixed;
+    radial-gradient(ellipse 80% 48% at 50% 0%, rgba(0, 0, 0, 0.032), transparent 68%),
+    radial-gradient(ellipse 68% 42% at 15% 42%, rgba(0, 0, 0, 0.02), transparent 66%),
+    radial-gradient(ellipse 64% 44% at 86% 78%, rgba(0, 0, 0, 0.02), transparent 68%);
+  background-attachment: scroll;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ambient-canvas {
+    background-attachment: fixed;
+  }
 }
 
 [data-theme="dark"] .ambient-canvas {
   background-image:
-    radial-gradient(ellipse 85% 55% at 18% 12%, rgba(74, 96, 130, 0.28), transparent 64%),
-    radial-gradient(ellipse 70% 48% at 82% 24%, rgba(196, 136, 92, 0.18), transparent 62%),
-    radial-gradient(ellipse 90% 60% at 50% 65%, rgba(44, 54, 72, 0.30), transparent 72%),
-    radial-gradient(ellipse 75% 45% at 15% 88%, rgba(154, 108, 76, 0.15), transparent 64%);
+    radial-gradient(ellipse 78% 46% at 50% 0%, rgba(255, 255, 255, 0.055), transparent 66%),
+    radial-gradient(ellipse 64% 44% at 16% 52%, rgba(255, 255, 255, 0.03), transparent 68%),
+    radial-gradient(ellipse 68% 42% at 85% 84%, rgba(255, 255, 255, 0.025), transparent 68%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .ambient-canvas {
     background-image:
-      radial-gradient(ellipse 85% 55% at 18% 12%, rgba(74, 96, 130, 0.28), transparent 64%),
-      radial-gradient(ellipse 70% 48% at 82% 24%, rgba(196, 136, 92, 0.18), transparent 62%),
-      radial-gradient(ellipse 90% 60% at 50% 65%, rgba(44, 54, 72, 0.30), transparent 72%),
-      radial-gradient(ellipse 75% 45% at 15% 88%, rgba(154, 108, 76, 0.15), transparent 64%);
+      radial-gradient(ellipse 78% 46% at 50% 0%, rgba(255, 255, 255, 0.055), transparent 66%),
+      radial-gradient(ellipse 64% 44% at 16% 52%, rgba(255, 255, 255, 0.03), transparent 68%),
+      radial-gradient(ellipse 68% 42% at 85% 84%, rgba(255, 255, 255, 0.025), transparent 68%);
   }
 }
 
 .ambient-chat-canvas {
   background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 78% 46% at 50% -6%, rgba(238, 212, 184, 0.32), transparent 68%),
-    radial-gradient(ellipse 64% 48% at 92% 18%, rgba(194, 214, 234, 0.28), transparent 64%),
-    radial-gradient(ellipse 70% 52% at 8% 88%, rgba(235, 224, 208, 0.30), transparent 68%);
+    radial-gradient(ellipse 72% 40% at 50% -8%, rgba(0, 0, 0, 0.025), transparent 70%);
 }
 
 [data-theme="dark"] .ambient-chat-canvas {
   background-image:
-    radial-gradient(ellipse 78% 46% at 50% -6%, rgba(76, 98, 132, 0.28), transparent 68%),
-    radial-gradient(ellipse 62% 46% at 86% 20%, rgba(194, 132, 88, 0.16), transparent 64%),
-    radial-gradient(ellipse 70% 52% at 12% 86%, rgba(44, 54, 74, 0.28), transparent 68%);
+    radial-gradient(ellipse 72% 40% at 50% -8%, rgba(255, 255, 255, 0.045), transparent 70%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .ambient-chat-canvas {
     background-image:
-      radial-gradient(ellipse 78% 46% at 50% -6%, rgba(76, 98, 132, 0.28), transparent 68%),
-      radial-gradient(ellipse 62% 46% at 86% 20%, rgba(194, 132, 88, 0.16), transparent 64%),
-      radial-gradient(ellipse 70% 52% at 12% 86%, rgba(44, 54, 74, 0.28), transparent 68%);
+      radial-gradient(ellipse 72% 40% at 50% -8%, rgba(255, 255, 255, 0.045), transparent 70%);
   }
 }
 
@@ -179,7 +182,6 @@ body {
 .surface-3d {
   background-color: var(--card);
   border: 1px solid var(--bd);
-  box-shadow: 0 1px 2px rgba(24, 23, 21, 0.03);
 }
 
 .surface-3d-elevated {
@@ -189,34 +191,47 @@ body {
 }
 
 .surface-3d-glass {
-  background: color-mix(in srgb, var(--card) 86%, transparent);
-  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--card) 94%, transparent);
   border: 1px solid var(--bd);
+}
+
+@media (min-width: 768px) {
+  .surface-3d-glass {
+    background: color-mix(in srgb, var(--card) 86%, transparent);
+    backdrop-filter: blur(14px);
+  }
 }
 
 .well-3d {
   background-color: var(--surf);
   border: 1px solid var(--bd);
-  transition: border-color 0.16s ease, background-color 0.16s ease;
+  transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.well-3d:focus-within {
-  border-color: var(--tx);
+.well-3d:focus-within,
+.well-3d:focus {
+  border-color: color-mix(in srgb, var(--tx) 48%, var(--bd));
+  background-color: var(--card);
 }
 
 .composer-3d {
   background-color: var(--card);
   border: 1px solid var(--bd);
-  box-shadow: 0 8px 28px -12px rgba(24, 23, 21, 0.1);
+  box-shadow: 0 6px 24px -14px rgba(0, 0, 0, 0.1);
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .composer-3d:focus-within {
-  border-color: color-mix(in srgb, var(--tx) 40%, var(--bd));
+  border-color: color-mix(in srgb, var(--tx) 42%, var(--bd));
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="dark"] .composer-3d {
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.48);
+}
+
+[data-theme="dark"] .composer-3d:focus-within {
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.62);
 }
 
 .btn-3d-primary {
@@ -286,7 +301,7 @@ body {
 
 .photo-frame-3d {
   border: 1px solid var(--bd);
-  box-shadow: 0 14px 36px -20px rgba(24, 23, 21, 0.18);
+  box-shadow: 0 14px 36px -20px rgba(0, 0, 0, 0.18);
 }
 
 [data-theme="dark"] .photo-frame-3d {
@@ -297,21 +312,19 @@ body {
   background-color: var(--card);
   border: 1px solid var(--bd);
   transition:
-    transform 0.24s var(--ease-calm),
+    transform 0.2s var(--ease-calm),
     border-color 0.2s var(--ease-calm),
-    background-color 0.2s var(--ease-calm),
-    box-shadow 0.24s var(--ease-calm);
+    background-color 0.2s var(--ease-calm);
 }
 
 .tile-3d:hover {
-  border-color: color-mix(in srgb, var(--tx) 26%, var(--bd));
-  background-color: var(--surf);
-  transform: translateY(-1.5px);
-  box-shadow: 0 12px 28px -20px rgba(24, 23, 21, 0.14);
+  border-color: color-mix(in srgb, var(--tx) 30%, var(--bd));
+  background-color: color-mix(in srgb, var(--surf) 55%, var(--card));
+  transform: translateY(-1px);
 }
 
 .tile-3d:active {
-  transform: translateY(0) scale(0.988);
+  transform: translateY(0) scale(0.99);
   transition-duration: 0.1s;
 }
 
@@ -345,32 +358,46 @@ body {
 
 .smooth-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--tx) 20%, var(--bd));
-  box-shadow: 0 18px 40px -26px rgba(24, 23, 21, 0.16);
+  border-color: color-mix(in srgb, var(--tx) 24%, var(--bd));
+  box-shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.16);
 }
 
 [data-theme="dark"] .smooth-card:hover {
   box-shadow: 0 22px 46px -26px rgba(0, 0, 0, 0.58);
 }
 
-/* Pointer-tracked subtle architectural card light (60fps CSS vars, zero blur) */
-.spotlight-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.28s var(--ease-calm);
-  background: radial-gradient(
-    280px circle at var(--mx, 50%) var(--my, 50%),
-    var(--ac-soft),
-    transparent 70%
-  );
-  z-index: 1;
+/* Pointer-tracked subtle architectural card light (desktop mice only — zero touch overhead) */
+@media (hover: hover) and (pointer: fine) {
+  .spotlight-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.28s var(--ease-calm);
+    background: radial-gradient(
+      280px circle at var(--mx, 50%) var(--my, 50%),
+      var(--ac-soft),
+      transparent 70%
+    );
+    z-index: 1;
+  }
+
+  .spotlight-card:hover::before {
+    opacity: 1;
+  }
 }
 
-.spotlight-card:hover::before {
-  opacity: 1;
+/* Disable stuck hover lift states on touch screens for crisp tap feedback */
+@media (hover: none) {
+  .btn-3d-primary:hover:not(:disabled),
+  .btn-3d-soft:hover:not(:disabled),
+  .btn-3d-hero-light:hover,
+  .tile-3d:hover,
+  .smooth-btn:hover:not(:disabled),
+  .smooth-card:hover {
+    transform: none;
+  }
 }
 
 .smooth-photo {
@@ -418,7 +445,7 @@ body {
 
 .segmented-thumb-3d {
   background-color: var(--card);
-  box-shadow: 0 1px 2px rgba(24, 23, 21, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .bar-3d-track {
@@ -448,9 +475,30 @@ body {
 
 button,
 a,
+[role="button"],
+[role="tab"],
 input,
-textarea {
+textarea,
+select {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Mobile-first scroll containment & deferred offscreen section paint */
+.scroll-touch-smooth {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .mobile-scroll-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 560px;
+  }
 }
 
 @layer base {

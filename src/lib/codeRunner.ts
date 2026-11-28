@@ -152,12 +152,15 @@ function buildBridgeScript(runId: string): string {
 function buildHtmlPreview(
   code: string,
   runId: string,
+  theme: 'light' | 'dark',
   siblingCss?: string,
   siblingJs?: string
 ): string {
   const bridge = buildBridgeScript(runId);
   const trimmed = code.trim();
   const hasFullDoc = /<!doctype|<html[\s>]/i.test(trimmed);
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
 
   const extraCss =
     siblingCss && !/<style[\s>]/i.test(trimmed)
@@ -197,8 +200,8 @@ function buildHtmlPreview(
       margin: 0;
       padding: 20px;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #ffffff;
-      color: #0a0a0a;
+      background: ${bg};
+      color: ${tx};
       line-height: 1.5;
     }
   </style>
@@ -213,8 +216,8 @@ function buildHtmlPreview(
 
 function buildSvgPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#141414' : '#f8f8f8';
-  const grid = theme === 'dark' ? '#242424' : '#e6e6e6';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const grid = theme === 'dark' ? '#262626' : '#E5E5E5';
 
   return `<!doctype html>
 <html>
@@ -248,10 +251,171 @@ function buildSvgPreview(code: string, runId: string, theme: 'light' | 'dark'): 
 </html>`;
 }
 
+const REACT_INJECTED_APIS = [
+  'useState',
+  'useEffect',
+  'useLayoutEffect',
+  'useRef',
+  'useMemo',
+  'useCallback',
+  'useReducer',
+  'useContext',
+  'useId',
+  'useTransition',
+  'useDeferredValue',
+  'useSyncExternalStore',
+  'createContext',
+  'forwardRef',
+  'memo',
+  'Fragment',
+  'Suspense',
+  'StrictMode',
+] as const;
+
+const REACT_INJECTED_SET = new Set<string>(REACT_INJECTED_APIS);
+
+export function preprocessReactPreviewSource(rawCode: string): {
+  transformedSource: string;
+  defaultName: string | null;
+} {
+  const buildReactAliases = (names: string) =>
+    names
+      .split(',')
+      .map((entry) => {
+        const trimmed = entry.replace(/^type\s+/, '').trim();
+        if (!trimmed) return '';
+        const aliasParts = trimmed.split(/\s+as\s+/);
+        const orig = aliasParts[0].trim();
+        const local = (aliasParts[1] || aliasParts[0]).trim();
+        if (!orig || !local) return '';
+        if (orig === local && REACT_INJECTED_SET.has(local)) return '';
+        return `var ${local} = React.${orig};`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+  const LUCIDE_ICON_PATHS: Record<string, string[]> = {
+    Check: ['M20 6 9 17l-5-5'],
+    X: ['M18 6 6 18', 'm6 6 12 12'],
+    Plus: ['M5 12h14', 'M12 5v14'],
+    Minus: ['M5 12h14'],
+    Search: ['M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'm21 21-4.3-4.3'],
+    Play: ['M6 4l14 8-14 8V4z'],
+    Pause: ['M6 4h4v16H6z', 'M14 4h4v16h-4z'],
+    RotateCcw: ['M3 12a9 9 0 1 0 3-6.7L3 8', 'M3 3v5h5'],
+    RotateCw: ['M21 12a9 9 0 1 1-3-6.7L21 8', 'M21 3v5h-5'],
+    ArrowRight: ['M5 12h14', 'm12 5 7 7-7 7'],
+    ArrowLeft: ['M19 12H5', 'm12 19-7-7 7-7'],
+    ChevronDown: ['m6 9 6 6 6-6'],
+    ChevronUp: ['m18 15-6-6-6 6'],
+    ChevronRight: ['m9 18 6-6-6-6'],
+    ChevronLeft: ['m15 18-6-6 6-6'],
+    Sun: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2', 'M12 20v2', 'M4.93 4.93l1.41 1.41', 'M17.66 17.66l1.41 1.41', 'M2 12h2', 'M20 12h2', 'M6.34 17.66l-1.41 1.41', 'M19.07 4.93l-1.41 1.41'],
+    Moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'],
+    Trash2: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2', 'M10 11v6', 'M14 11v6'],
+    Trash: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'],
+    Edit: ['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', 'M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z'],
+    Pencil: ['M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'],
+    Copy: ['M8 4h12v12H8z', 'M4 8v12h12'],
+    Download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5', 'M12 15V3'],
+    Heart: ['M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'],
+    Star: ['m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'],
+    Clock: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'M12 6v6l4 2'],
+    Calendar: ['M8 2v4', 'M16 2v4', 'M3 10h18', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'],
+    Settings: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'],
+    Menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
+    Send: ['m22 2-7 20-4-9-9-4Z', 'M22 2 11 13'],
+    Sparkles: ['m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z'],
+    AlertCircle: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'M12 8v4', 'M12 16h.01'],
+  };
+
+  const buildLucideStubs = (names: string) =>
+    names
+      .split(',')
+      .map((entry) => {
+        const trimmed = entry.replace(/^type\s+/, '').trim();
+        if (!trimmed) return '';
+        const aliasParts = trimmed.split(/\s+as\s+/);
+        const orig = aliasParts[0].trim();
+        const local = (aliasParts[1] || aliasParts[0]).trim();
+        if (!local) return '';
+        const paths = LUCIDE_ICON_PATHS[orig];
+        if (paths && paths.length > 0) {
+          const children = paths
+            .map((d, idx) => `React.createElement("path", { key: ${idx}, d: ${JSON.stringify(d)} })`)
+            .join(', ');
+          return `var ${local} = (props) => React.createElement("svg", Object.assign({ width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, props), ${children});`;
+        }
+        return `var ${local} = (props) => React.createElement("svg", Object.assign({ width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, props), React.createElement("circle", { cx: 12, cy: 12, r: 9 }));`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+  const transformedSource = rawCode
+    // Remove side-effect CSS/asset imports
+    .replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, '')
+    // Remove TypeScript-only imports (single or multiline)
+    .replace(/^\s*import\s+type\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')
+    // Replace React named/default imports (single or multiline) without shadowing pre-injected params
+    .replace(
+      /^\s*import\s+React\s*,\s*\{([\s\S]*?)\}\s+from\s+['"]react['"];?\s*$/gm,
+      (_, names) => buildReactAliases(names)
+    )
+    .replace(
+      /^\s*import\s+\{([\s\S]*?)\}\s+from\s+['"]react['"];?\s*$/gm,
+      (_, names) => buildReactAliases(names)
+    )
+    .replace(/^\s*import\s+React\s+from\s+['"]react['"];?\s*$/gm, '')
+    .replace(/^\s*import\s+\*\s+as\s+React\s+from\s+['"]react['"];?\s*$/gm, '')
+    // Provide lightweight inline SVG stubs for lucide-react imports (single or multiline)
+    .replace(
+      /^\s*import\s+\{([\s\S]*?)\}\s+from\s+['"]lucide-react['"];?\s*$/gm,
+      (_, names) => buildLucideStubs(names)
+    )
+    // Drop any remaining external import statements safely (single or multiline)
+    .replace(/^\s*import\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')
+    // Normalize exports
+    .replace(/export\s+default\s+function\s+([A-Za-z0-9_]+)/g, 'function $1')
+    .replace(/export\s+default\s+class\s+([A-Za-z0-9_]+)/g, 'class $1')
+    .replace(/export\s+default\s+/g, 'const __DefaultExport__ = ')
+    .replace(/^\s*export\s+(const|let|var|function|async\s+function|class|interface|type|enum)\s+/gm, '$1 ');
+
+  // Detect root component: explicit default export -> App -> last capitalized component
+  const defaultNamedMatch = rawCode.match(/export\s+default\s+(?:function|class)\s+([A-Za-z0-9_]+)/);
+  let defaultName: string | null = defaultNamedMatch ? defaultNamedMatch[1] : null;
+  if (!defaultName) {
+    const defaultIdentMatch = rawCode.match(/export\s+default\s+([A-Z][A-Za-z0-9_]*)\s*;?/);
+    if (defaultIdentMatch) defaultName = defaultIdentMatch[1];
+  }
+  if (!defaultName && /(?:function|const|let|var|class)\s+App\b/.test(rawCode)) {
+    defaultName = 'App';
+  }
+  if (!defaultName) {
+    const allCapMatches = Array.from(
+      rawCode.matchAll(/(?:function|const|class)\s+([A-Z][A-Za-z0-9_]*)\b/g)
+    );
+    if (allCapMatches.length > 0) {
+      defaultName = allCapMatches[allCapMatches.length - 1][1];
+    }
+  }
+
+  return { transformedSource, defaultName };
+}
+
+export function preprocessScriptPreviewSource(rawCode: string): string {
+  return rawCode
+    .replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, '')
+    .replace(/^\s*import\s+type\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')
+    .replace(/^\s*import\s+[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '')
+    .replace(/^\s*export\s+default\s+/gm, '')
+    .replace(/^\s*export\s+(const|let|var|function|async\s+function|class|interface|type|enum)\s+/gm, '$1 ');
+}
+
 function buildReactPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#0f0f0f' : '#ffffff';
-  const tx = theme === 'dark' ? '#f5f5f5' : '#0a0a0a';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
+  const { transformedSource, defaultName } = preprocessReactPreviewSource(code);
 
   return `<!doctype html>
 <html>
@@ -288,7 +452,8 @@ function buildReactPreview(code: string, runId: string, theme: 'light' | 'dark')
   <div id="root"></div>
   <script>
     (function() {
-      var rawCode = ${safeJsonEmbed(code)};
+      var transformedSource = ${safeJsonEmbed(transformedSource)};
+      var defaultName = ${safeJsonEmbed(defaultName)};
       var rootEl = document.getElementById('root');
 
       function showErr(err) {
@@ -303,69 +468,23 @@ function buildReactPreview(code: string, runId: string, theme: 'light' | 'dark')
       }
 
       try {
-        // Normalize ES imports/exports for browser execution
-        var transformedSource = rawCode
-          // Remove CSS imports
-          .replace(/^\\s*import\\s+['"][^'"]+\\.css['"];?\\s*$/gm, '')
-          // Replace react imports with destructuring from React
-          .replace(/^\\s*import\\s+React\\s*,\\s*\\{([^}]+)\\}\\s+from\\s+['"]react['"];?\\s*$/gm, 'const {$1} = React;')
-          .replace(/^\\s*import\\s+\\{([^}]+)\\}\\s+from\\s+['"]react['"];?\\s*$/gm, 'const {$1} = React;')
-          .replace(/^\\s*import\\s+React\\s+from\\s+['"]react['"];?\\s*$/gm, '')
-          .replace(/^\\s*import\\s+\\*\\s+as\\s+React\\s+from\\s+['"]react['"];?\\s*$/gm, '')
-          // Provide lightweight inline SVG component stubs for lucide-react imports
-          .replace(/^\\s*import\\s+\\{([^}]+)\\}\\s+from\\s+['"]lucide-react['"];?\\s*$/gm, function(_, names) {
-            return names.split(',').map(function(n) {
-              var clean = n.trim().split(/\\s+as\\s+/).pop().trim();
-              if (!clean) return '';
-              return 'const ' + clean + ' = (props) => React.createElement("svg", Object.assign({ width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, props), React.createElement("circle", { cx: 12, cy: 12, r: 9 }));';
-            }).join('\\n');
-          })
-          // Drop any remaining external import lines safely
-          .replace(/^\\s*import\\s+[\\s\\S]*?from\\s+['"][^'"]+['"];?\\s*$/gm, '')
-          // Capture default exported function/class/expression
-          .replace(/export\\s+default\\s+function\\s+([A-Za-z0-9_]+)/g, 'function $1')
-          .replace(/export\\s+default\\s+class\\s+([A-Za-z0-9_]+)/g, 'class $1')
-          .replace(/export\\s+default\\s+/g, 'const __DefaultExport__ = ')
-          .replace(/^\\s*export\\s+(const|let|var|function|class)\\s+/gm, '$1 ');
-
-        // Detect default component name if named export default function/class was used
-        var defaultMatch = rawCode.match(/export\\s+default\\s+(?:function|class)\\s+([A-Za-z0-9_]+)/);
-        var defaultName = defaultMatch ? defaultMatch[1] : null;
-        if (!defaultName) {
-          var appMatch = rawCode.match(/(?:function|const|class)\\s+(App|[A-Z][A-Za-z0-9_]*)\\b/);
-          if (appMatch) defaultName = appMatch[1];
-        }
-
         var compiled = window.Babel.transform(transformedSource, {
           presets: ['react', 'typescript'],
           filename: 'App.tsx'
         }).code;
 
+        var fallbackIdent = defaultName || 'App';
         var runner = new Function(
           'React',
           'ReactDOM',
-          'useState',
-          'useEffect',
-          'useRef',
-          'useMemo',
-          'useCallback',
-          'useReducer',
-          'useContext',
-          'Fragment',
-          compiled + '\\nreturn typeof __DefaultExport__ !== "undefined" ? __DefaultExport__ : (typeof ' + (defaultName || 'App') + ' !== "undefined" ? ' + (defaultName || 'App') + ' : null);'
+          ${REACT_INJECTED_APIS.map((k) => `'${k}'`).join(',\n          ')},
+          compiled + '\\nreturn typeof __DefaultExport__ !== "undefined" ? __DefaultExport__ : (typeof ' + fallbackIdent + ' !== "undefined" ? ' + fallbackIdent + ' : null);'
         );
 
         var TargetComp = runner(
           window.React,
           window.ReactDOM,
-          window.React.useState,
-          window.React.useEffect,
-          window.React.useRef,
-          window.React.useMemo,
-          window.React.useCallback,
-          window.React.useReducer,
-          window.React.useContext,
-          window.React.Fragment
+          ${REACT_INJECTED_APIS.map((k) => `window.React.${k}`).join(',\n          ')}
         );
 
         if (!TargetComp) {
@@ -385,8 +504,10 @@ function buildReactPreview(code: string, runId: string, theme: 'light' | 'dark')
           }
         };
 
-        var element = typeof TargetComp === 'function'
-          ? window.React.createElement(TargetComp)
+        var element = typeof TargetComp === 'function' || (TargetComp && typeof TargetComp === 'object' && TargetComp.$$typeof)
+          ? (typeof TargetComp === 'function' || TargetComp.$$typeof === Symbol.for('react.forward_ref') || TargetComp.$$typeof === Symbol.for('react.memo')
+            ? window.React.createElement(TargetComp)
+            : TargetComp)
           : TargetComp;
 
         window.ReactDOM.createRoot(rootEl).render(
@@ -408,8 +529,8 @@ function buildScriptPreview(
   theme: 'light' | 'dark'
 ): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#0f0f0f' : '#ffffff';
-  const tx = theme === 'dark' ? '#f5f5f5' : '#0a0a0a';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
   const isTs = language === 'typescript';
 
   return `<!doctype html>
@@ -433,7 +554,7 @@ function buildScriptPreview(
   <div id="app"></div>
   <script>
     (function() {
-      var raw = ${safeJsonEmbed(code)};
+      var raw = ${safeJsonEmbed(preprocessScriptPreviewSource(code))};
       var isTs = ${safeJsonEmbed(isTs)};
       try {
         var executable = raw;
@@ -444,11 +565,17 @@ function buildScriptPreview(
             filename: 'script.ts'
           }).code;
         }
-        var fn = new Function(executable);
-        var result = fn();
-        if (result !== undefined) {
-          console.log(result);
-        }
+        var AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+        var fn = new AsyncFunction(executable);
+        Promise.resolve(fn())
+          .then(function(result) {
+            if (result !== undefined) {
+              console.log(result);
+            }
+          })
+          .catch(function(err) {
+            console.error(err);
+          });
       } catch (err) {
         console.error(err);
       }
@@ -458,8 +585,10 @@ function buildScriptPreview(
 </html>`;
 }
 
-function buildCssPreview(code: string, runId: string): string {
+function buildCssPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
   return `<!doctype html>
 <html>
 <head>
@@ -470,8 +599,8 @@ function buildCssPreview(code: string, runId: string): string {
       margin: 0;
       padding: 24px;
       font-family: system-ui, -apple-system, sans-serif;
-      background: #ffffff;
-      color: #0a0a0a;
+      background: ${bg};
+      color: ${tx};
     }
   </style>
   <style>${code}</style>
@@ -491,9 +620,9 @@ function buildCssPreview(code: string, runId: string): string {
 
 function buildJsonPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#0f0f0f' : '#ffffff';
-  const tx = theme === 'dark' ? '#e5e5e5' : '#171717';
-  const mut = theme === 'dark' ? '#9ca3af' : '#6b7280';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
+  const mut = theme === 'dark' ? '#9A9A9A' : '#666666';
 
   let formatted = code;
   let valid = true;
@@ -544,8 +673,8 @@ function buildJsonPreview(code: string, runId: string, theme: 'light' | 'dark'):
 
 function buildMermaidPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#0f0f0f' : '#ffffff';
-  const tx = theme === 'dark' ? '#f5f5f5' : '#0a0a0a';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
 
   return `<!doctype html>
 <html>
@@ -579,11 +708,11 @@ function buildMermaidPreview(code: string, runId: string, theme: 'light' | 'dark
 
 function buildMarkdownPreview(code: string, runId: string, theme: 'light' | 'dark'): string {
   const bridge = buildBridgeScript(runId);
-  const bg = theme === 'dark' ? '#0f0f0f' : '#ffffff';
-  const tx = theme === 'dark' ? '#f5f5f5' : '#0a0a0a';
-  const mut = theme === 'dark' ? '#a3a3a3' : '#525252';
-  const surf = theme === 'dark' ? '#1a1a1a' : '#f5f5f5';
-  const bd = theme === 'dark' ? '#2e2e2e' : '#e5e5e5';
+  const bg = theme === 'dark' ? '#000000' : '#FFFFFF';
+  const tx = theme === 'dark' ? '#FFFFFF' : '#000000';
+  const mut = theme === 'dark' ? '#9A9A9A' : '#666666';
+  const surf = theme === 'dark' ? '#141414' : '#F5F5F5';
+  const bd = theme === 'dark' ? '#262626' : '#E5E5E5';
 
   return `<!doctype html>
 <html>
@@ -702,7 +831,7 @@ export function buildPreviewDocument(opts: {
   const { code, runId, theme, siblingCss, siblingJs } = opts;
 
   if (lang === 'html') {
-    const srcDoc = buildHtmlPreview(code, runId, siblingCss, siblingJs);
+    const srcDoc = buildHtmlPreview(code, runId, theme, siblingCss, siblingJs);
     return {
       srcDoc,
       isConsoleFirst: false,
@@ -741,7 +870,7 @@ export function buildPreviewDocument(opts: {
   }
   if (lang === 'css') {
     return {
-      srcDoc: buildCssPreview(code, runId),
+      srcDoc: buildCssPreview(code, runId, theme),
       isConsoleFirst: false,
       fileName: 'styles.css',
       mimeType: 'text/css',
@@ -777,7 +906,7 @@ export function buildPreviewDocument(opts: {
   }
 
   return {
-    srcDoc: buildHtmlPreview(code, runId, siblingCss, siblingJs),
+    srcDoc: buildHtmlPreview(code, runId, theme, siblingCss, siblingJs),
     isConsoleFirst: false,
     fileName: 'longclaw-result.html',
     mimeType: 'text/html',

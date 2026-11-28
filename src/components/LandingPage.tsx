@@ -4,6 +4,8 @@ import {
   Moon,
   ArrowRight,
   ArrowUpRight,
+  Menu,
+  X,
 } from 'lucide-react';
 import {
   AnimatePresence,
@@ -43,6 +45,7 @@ import {
   LIQUID_SPRING,
   LIQUID_TAP,
   PROGRESS_SCROLL_SPRING,
+  useIsCoarsePointer,
 } from '../lib/motion';
 
 interface LandingPageProps {
@@ -58,6 +61,7 @@ interface LandingPageProps {
 type NavTarget = 'top' | 'gun' | 'modlar' | 'sss' | 'benchmarks';
 
 export function LandingPage({
+  user,
   onOpenAuth,
   onOpenLegal,
   theme,
@@ -70,12 +74,14 @@ export function LandingPage({
   const demoConversations = l.demoConversations;
   const depthAnswers = l.depthAnswers;
   const prefersReducedMotion = useReducedMotion();
+  const isCoarsePointer = useIsCoarsePointer();
 
   const [activePage, setActivePage] = useState<'home' | 'benchmarks'>('home');
   const [activeSection, setActiveSection] = useState<'top' | 'gun' | 'modlar' | 'sss'>('top');
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Page-wide scroll reading hairline
+  // Page-wide scroll reading hairline (desktop only to keep mobile scroll completely zero-overhead)
   const { scrollYProgress: pageScrollProgress } = useScroll();
   const smoothPageProgress = useSpring(pageScrollProgress, PROGRESS_SCROLL_SPRING);
 
@@ -110,6 +116,7 @@ export function LandingPage({
   }, [activePage]);
 
   const openBenchmarks = () => {
+    setMobileNavOpen(false);
     setActivePage('benchmarks');
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -117,6 +124,7 @@ export function LandingPage({
   };
 
   const navigateToSection = (sectionId: 'top' | 'gun' | 'modlar' | 'sss') => {
+    setMobileNavOpen(false);
     setActivePage('home');
     setActiveSection(sectionId);
     setTimeout(() => {
@@ -201,14 +209,14 @@ export function LandingPage({
 
   return (
     <div className="ambient-canvas relative min-h-screen font-soft text-[var(--tx)] selection:bg-[var(--tx)] selection:text-[var(--bg)]">
-      {/* Ultra-subtle fine-art paper grain */}
+      {/* Ultra-subtle fine-art paper grain (desktop only so mobile GPUs avoid full-screen noise compositing) */}
       <div
-        className="ambient-grain pointer-events-none fixed inset-0 z-0 opacity-[0.028] dark:opacity-[0.04]"
+        className="hidden md:block ambient-grain pointer-events-none fixed inset-0 z-0 opacity-[0.028] dark:opacity-[0.04]"
         aria-hidden="true"
       />
 
       {/* Clean 3-Zone Top Navigation Bar */}
-      <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] bg-[var(--bg)]/82 backdrop-blur-xl border-b border-[var(--bd)]/65">
+      <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] bg-[var(--bg)]/95 md:bg-[var(--bg)]/82 md:backdrop-blur-lg border-b border-[var(--bd)]/65">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-8">
           {/* Zone 1: Brand Wordmark */}
           <motion.a
@@ -313,13 +321,15 @@ export function LandingPage({
               </AnimatePresence>
             </motion.button>
 
-            <button
-              type="button"
-              onClick={() => onOpenAuth('in')}
-              className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm font-medium text-[var(--mut)] hover:text-[var(--tx)] transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              {t.nav.signIn}
-            </button>
+            {!user && (
+              <button
+                type="button"
+                onClick={() => onOpenAuth('in')}
+                className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm font-medium text-[var(--mut)] hover:text-[var(--tx)] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                {t.nav.signIn}
+              </button>
+            )}
 
             <motion.button
               type="button"
@@ -329,17 +339,117 @@ export function LandingPage({
               transition={LIQUID_TAP}
               className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-92 text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap shrink-0 transition-opacity"
             >
-              <span>{t.nav.start}</span>
+              <span>
+                {user
+                  ? lang === 'tr'
+                    ? 'Çalışma alanı'
+                    : 'Open workspace'
+                  : t.nav.start}
+              </span>
               <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
             </motion.button>
+
+            {/* Mobile Navigation Drawer Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              aria-expanded={mobileNavOpen}
+              aria-label={mobileNavOpen ? t.common.close : lang === 'tr' ? 'Menüyü aç' : 'Open menu'}
+              className="md:hidden w-9 h-9 rounded-full flex items-center justify-center text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
+            >
+              {mobileNavOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
+            </button>
           </div>
         </div>
 
-        {/* Razor-Thin Scroll Reading Progress Hairline */}
-        {activePage === 'home' && !prefersReducedMotion && (
+        {/* Clean Mobile Navigation Sheet */}
+        <AnimatePresence initial={false}>
+          {mobileNavOpen && (
+            <motion.div
+              key="landing-mobile-nav"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: LIQUID_EASE }}
+              className="md:hidden overflow-hidden border-t border-[var(--bd)]/75 bg-[var(--bg)]"
+            >
+              <div className="px-4 py-4 space-y-1">
+                {navItems.map((item) => {
+                  const isActive = activeNavKey === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={item.onClick}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-[var(--surf)] text-[var(--tx)] font-semibold'
+                          : 'text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]/60 font-medium'
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      <ArrowRight className="w-3.5 h-3.5 opacity-55" />
+                    </button>
+                  );
+                })}
+
+                <div className="pt-3 mt-2 border-t border-[var(--bd)]/75 flex items-center justify-between gap-3 px-2">
+                  <div
+                    role="group"
+                    aria-label={t.nav.chooseLanguage}
+                    className="inline-flex items-center gap-2 text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onChangeLang('en')}
+                      aria-pressed={lang === 'en'}
+                      className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                        lang === 'en'
+                          ? 'bg-[var(--surf)] text-[var(--tx)] font-semibold'
+                          : 'text-[var(--mut)]'
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChangeLang('tr')}
+                      aria-pressed={lang === 'tr'}
+                      className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                        lang === 'tr'
+                          ? 'bg-[var(--surf)] text-[var(--tx)] font-semibold'
+                          : 'text-[var(--mut)]'
+                      }`}
+                    >
+                      Türkçe
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileNavOpen(false);
+                      onOpenAuth('in');
+                    }}
+                    className="px-3.5 py-1.5 rounded-full border border-[var(--bd)] bg-[var(--card)] text-xs font-medium text-[var(--tx)] cursor-pointer whitespace-nowrap"
+                  >
+                    {user
+                      ? lang === 'tr'
+                        ? 'Çalışma alanı'
+                        : 'Open workspace'
+                      : t.nav.signIn}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Razor-Thin Scroll Reading Progress Hairline (desktop only for silky mobile scrolling) */}
+        {activePage === 'home' && !prefersReducedMotion && !isCoarsePointer && (
           <motion.div
             style={{ scaleX: smoothPageProgress }}
-            className="h-[1.5px] w-full bg-[var(--ac)]/65 origin-left will-change-transform"
+            className="hidden md:block h-[1.5px] w-full bg-[var(--editorial-accent)]/75 origin-left will-change-transform"
             aria-hidden="true"
           />
         )}
@@ -391,10 +501,10 @@ export function LandingPage({
                     <span className="w-5 h-px bg-[var(--bd)]" aria-hidden="true" />
                   </motion.p>
 
-                  <h1 className="text-[2.65rem] sm:text-[3.75rem] lg:text-[4.55rem] font-semibold tracking-[-0.04em] leading-[1.03] text-[var(--tx)] text-balance">
+                  <h1 className="font-display text-[2.65rem] sm:text-[3.85rem] lg:text-[4.65rem] font-medium tracking-[-0.03em] leading-[1.04] text-[var(--tx)] text-balance">
                     <MaskedReveal delay={0.04}>{l.heroTitleLine1}</MaskedReveal>
                     <MaskedReveal delay={0.12}>
-                      <span className="font-normal text-[var(--tx)]/72">
+                      <span className="italic font-normal text-[var(--tx)]/76">
                         {l.heroTitleLine2}
                       </span>
                     </MaskedReveal>
@@ -404,7 +514,7 @@ export function LandingPage({
                     initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.52, delay: 0.18, ease: EDITORIAL_EASE }}
-                    className="mt-6 text-base sm:text-[18px] text-[var(--mut)] max-w-xl mx-auto leading-[1.72] text-balance"
+                    className="mt-6 text-base sm:text-[17.5px] text-[var(--mut)] max-w-xl mx-auto leading-[1.72] text-balance"
                   >
                     {l.heroSubtitle}
                   </motion.p>
@@ -418,10 +528,10 @@ export function LandingPage({
                     <motion.button
                       type="button"
                       onClick={() => onOpenAuth('up')}
-                      whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
-                      whileTap={prefersReducedMotion ? undefined : { scale: 0.975 }}
+                      whileHover={prefersReducedMotion ? undefined : { y: -1.5, scale: 1.01 }}
+                      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                       transition={LIQUID_TAP}
-                      className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-95 text-sm font-medium shadow-[0_16px_36px_-12px_rgba(24,23,21,0.34)] cursor-pointer whitespace-nowrap transition-opacity"
+                      className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[var(--ac)] text-[var(--on)] hover:opacity-92 text-sm font-medium cursor-pointer whitespace-nowrap transition-opacity"
                     >
                       <span>{l.startFree}</span>
                       <ArrowRight className="w-4 h-4 transition-transform duration-200 ease-out group-hover:translate-x-1" />
@@ -454,7 +564,7 @@ export function LandingPage({
             </section>
 
             {/* ARCHITECTURAL PILLARS STRIP: 4-Column Hairline Capability Overview */}
-            <section className="relative z-10 border-b border-[var(--bd)]/75 bg-[var(--card)]/55 backdrop-blur-xs">
+            <section className="relative z-10 border-b border-[var(--bd)]/75 bg-[var(--card)]/78">
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--bd)]/75">
                   {capabilityPillars.map((pillar, idx) => (
@@ -470,7 +580,7 @@ export function LandingPage({
                       }}
                       className="py-7 sm:py-8 sm:px-6 first:sm:pl-0 last:sm:pr-0 space-y-2"
                     >
-                      <span className="block text-xs font-semibold tabular-nums text-[var(--ac)]/70">
+                      <span className="block text-xs font-mono font-medium tabular-nums text-[var(--editorial-accent)]">
                         {pillar.num}
                       </span>
                       <h2 className="text-[15px] font-semibold tracking-tight text-[var(--tx)]">
@@ -486,7 +596,7 @@ export function LandingPage({
             </section>
 
             {/* SECTION 01: Asymmetric Interactive Studio Bento */}
-            <section className="py-20 sm:py-26 border-b border-[var(--bd)]/75">
+            <section className="mobile-scroll-section py-20 sm:py-26 border-b border-[var(--bd)]/75">
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 <div className="max-w-2xl mb-12 sm:mb-14">
                   <motion.p
@@ -494,11 +604,12 @@ export function LandingPage({
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={EDITORIAL_VIEWPORT}
                     transition={{ duration: 0.42, ease: EDITORIAL_EASE }}
-                    className="text-xs font-semibold tabular-nums text-[var(--mut)] mb-2.5"
+                    className="text-xs font-medium tabular-nums text-[var(--mut)] mb-2.5"
                   >
-                    01. {l.showcaseEyebrow}
+                    <span className="font-mono text-[var(--editorial-accent)] mr-1.5">01.</span>
+                    {l.showcaseEyebrow}
                   </motion.p>
-                  <h2 className="text-3xl sm:text-[2.6rem] font-semibold tracking-[-0.03em] leading-[1.1] text-balance">
+                  <h2 className="font-display text-3xl sm:text-[2.7rem] font-medium tracking-[-0.025em] leading-[1.1] text-balance">
                     <MaskedReveal inView delay={0.04}>
                       {l.showcaseTitle}
                     </MaskedReveal>
@@ -535,7 +646,7 @@ export function LandingPage({
             </section>
 
             {/* SECTION 02: Interactive Clawing Model Family Ledger */}
-            <section className="relative z-10 py-20 sm:py-26 bg-[var(--surf)]/40 backdrop-blur-[2px] border-b border-[var(--bd)]/75">
+            <section className="mobile-scroll-section relative z-10 py-20 sm:py-26 bg-[var(--surf)]/65 border-b border-[var(--bd)]/75">
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 <div className="max-w-2xl mb-12 sm:mb-14">
                   <motion.p
@@ -543,11 +654,12 @@ export function LandingPage({
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={EDITORIAL_VIEWPORT}
                     transition={{ duration: 0.42, ease: EDITORIAL_EASE }}
-                    className="text-xs font-semibold tabular-nums text-[var(--mut)] mb-2.5"
+                    className="text-xs font-medium tabular-nums text-[var(--mut)] mb-2.5"
                   >
-                    02. {l.familyEyebrow}
+                    <span className="font-mono text-[var(--editorial-accent)] mr-1.5">02.</span>
+                    {l.familyEyebrow}
                   </motion.p>
-                  <h2 className="text-3xl sm:text-[2.6rem] font-semibold tracking-[-0.03em] leading-[1.1] text-balance">
+                  <h2 className="font-display text-3xl sm:text-[2.7rem] font-medium tracking-[-0.025em] leading-[1.1] text-balance">
                     <MaskedReveal inView delay={0.04}>
                       {l.familyTitle}
                     </MaskedReveal>
@@ -574,7 +686,7 @@ export function LandingPage({
             </section>
 
             {/* SECTION 03: Three Reasoning Depths (Full-Presence Editorial Stage) */}
-            <section id="modlar" className="py-20 sm:py-26 border-b border-[var(--bd)]/75">
+            <section id="modlar" className="mobile-scroll-section py-20 sm:py-26 border-b border-[var(--bd)]/75">
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10 sm:mb-12">
                   <div className="max-w-xl">
@@ -583,11 +695,12 @@ export function LandingPage({
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={EDITORIAL_VIEWPORT}
                       transition={{ duration: 0.42, ease: EDITORIAL_EASE }}
-                      className="text-xs font-semibold tabular-nums text-[var(--mut)] mb-2.5"
+                      className="text-xs font-medium tabular-nums text-[var(--mut)] mb-2.5"
                     >
-                      03. {t.nav.depths}
+                      <span className="font-mono text-[var(--editorial-accent)] mr-1.5">03.</span>
+                      {t.nav.depths}
                     </motion.p>
-                    <h2 className="text-3xl sm:text-[2.6rem] font-semibold tracking-[-0.03em] leading-[1.1] text-balance">
+                    <h2 className="font-display text-3xl sm:text-[2.7rem] font-medium tracking-[-0.025em] leading-[1.1] text-balance">
                       <MaskedReveal inView>{l.depthsTitle}</MaskedReveal>
                     </h2>
                   </div>
@@ -621,7 +734,7 @@ export function LandingPage({
             {/* SECTION 04: Interactive Daily Workflow Chapters */}
             <section
               id="gun"
-              className="relative z-10 py-20 sm:py-26 bg-[var(--surf)]/40 backdrop-blur-[2px] border-b border-[var(--bd)]/75"
+              className="mobile-scroll-section relative z-10 py-20 sm:py-26 bg-[var(--surf)]/65 border-b border-[var(--bd)]/75"
             >
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 <div className="max-w-2xl mb-10 sm:mb-12">
@@ -630,11 +743,12 @@ export function LandingPage({
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={EDITORIAL_VIEWPORT}
                     transition={{ duration: 0.42, ease: EDITORIAL_EASE }}
-                    className="text-xs font-semibold tabular-nums text-[var(--mut)] mb-2.5"
+                    className="text-xs font-medium tabular-nums text-[var(--mut)] mb-2.5"
                   >
-                    04. {t.nav.whatItDoes}
+                    <span className="font-mono text-[var(--editorial-accent)] mr-1.5">04.</span>
+                    {t.nav.whatItDoes}
                   </motion.p>
-                  <h2 className="text-3xl sm:text-[2.6rem] font-semibold tracking-[-0.03em] leading-[1.1] text-balance">
+                  <h2 className="font-display text-3xl sm:text-[2.7rem] font-medium tracking-[-0.025em] leading-[1.1] text-balance">
                     <MaskedReveal inView>{l.timelineTitle}</MaskedReveal>
                   </h2>
                 </div>
@@ -644,15 +758,16 @@ export function LandingPage({
             </section>
 
             {/* SECTION 05: Quiet Details + Asymmetric FAQ + Architectural Horizon Closing Band */}
-            <section id="sss" className="py-20 sm:py-26">
+            <section id="sss" className="mobile-scroll-section py-20 sm:py-26">
               <div className="max-w-6xl mx-auto px-4 sm:px-8">
                 {/* Quiet Details Hairline Band */}
                 <div className="pb-16 sm:pb-20 mb-16 sm:mb-20 border-b border-[var(--bd)]/75 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
                   <div className="lg:col-span-4">
-                    <p className="text-xs font-semibold tabular-nums text-[var(--mut)] mb-2.5">
-                      05. {lang === 'tr' ? 'Ayrıntılar' : 'Craft & Details'}
+                    <p className="text-xs font-medium tabular-nums text-[var(--mut)] mb-2.5">
+                      <span className="font-mono text-[var(--editorial-accent)] mr-1.5">05.</span>
+                      {lang === 'tr' ? 'Ayrıntılar' : 'Craft & Details'}
                     </p>
-                    <h2 className="text-3xl sm:text-4xl font-semibold tracking-[-0.03em] leading-[1.12] text-balance">
+                    <h2 className="font-display text-3xl sm:text-4xl font-medium tracking-[-0.025em] leading-[1.12] text-balance">
                       <MaskedReveal inView>{l.checklistTitle}</MaskedReveal>
                     </h2>
                   </div>
@@ -667,10 +782,10 @@ export function LandingPage({
                 {/* Asymmetric FAQ Split */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
                   <div className="lg:col-span-4 lg:sticky lg:top-24">
-                    <p className="text-xs font-semibold text-[var(--mut)] mb-2.5">
+                    <p className="text-xs font-medium text-[var(--mut)] mb-2.5">
                       {t.nav.faq}
                     </p>
-                    <h2 className="text-3xl sm:text-4xl font-semibold tracking-[-0.03em] leading-[1.12] text-balance">
+                    <h2 className="font-display text-3xl sm:text-4xl font-medium tracking-[-0.025em] leading-[1.12] text-balance">
                       <MaskedReveal inView>{l.faqTitle}</MaskedReveal>
                     </h2>
                   </div>
@@ -772,7 +887,7 @@ export function LandingPage({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={EDITORIAL_VIEWPORT}
         transition={{ duration: 0.48, ease: EDITORIAL_EASE }}
-        className="relative z-10 border-t border-[var(--bd)]/75 py-14 sm:py-16 bg-[var(--surf)]/40 backdrop-blur-[2px] text-[var(--mut)] text-xs"
+        className="mobile-scroll-section relative z-10 border-t border-[var(--bd)]/75 py-14 sm:py-16 bg-[var(--surf)]/65 text-[var(--mut)] text-xs"
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-8 grid grid-cols-1 sm:grid-cols-3 gap-10 mb-12">
           <div>

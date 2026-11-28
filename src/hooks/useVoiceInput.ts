@@ -120,6 +120,7 @@ export function useVoiceInput({
   const timerRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
+  const isStartingRef = useRef(false);
 
   const recognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null);
   const speechFinalTextRef = useRef('');
@@ -194,6 +195,7 @@ export function useVoiceInput({
 
   const cancelRecording = useCallback(() => {
     cancelledRef.current = true;
+    isStartingRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -366,7 +368,7 @@ export function useVoiceInput({
   }, [cleanupAudioResources, startElapsedTimer]);
 
   const startRecording = useCallback(async () => {
-    if (status !== 'idle') return;
+    if (status !== 'idle' || isStartingRef.current) return;
     const vText = TRANSLATIONS[langRef.current].chat.voice;
 
     const canRecordMedia =
@@ -380,6 +382,7 @@ export function useVoiceInput({
       return;
     }
 
+    isStartingRef.current = true;
     cancelledRef.current = false;
     recordedChunksRef.current = [];
     setInterimTranscript('');
@@ -394,6 +397,7 @@ export function useVoiceInput({
         },
       });
     } catch (err: any) {
+      isStartingRef.current = false;
       const errName = String(err?.name || '');
       if (
         errName === 'NotAllowedError' ||
@@ -409,6 +413,16 @@ export function useVoiceInput({
       return;
     }
 
+    if (cancelledRef.current) {
+      isStartingRef.current = false;
+      for (const track of stream.getTracks()) {
+        try {
+          track.stop();
+        } catch {}
+      }
+      return;
+    }
+
     mediaStreamRef.current = stream;
 
     const preferredMime = pickSupportedRecorderMime();
@@ -418,6 +432,7 @@ export function useVoiceInput({
         ? new MediaRecorder(stream, { mimeType: preferredMime })
         : new MediaRecorder(stream);
     } catch {
+      isStartingRef.current = false;
       cleanupAudioResources();
       if (getBrowserSpeechRecognition()) {
         startBrowserSpeechRecognition();
@@ -520,6 +535,7 @@ export function useVoiceInput({
 
     try {
       recorder.start(250);
+      isStartingRef.current = false;
       setStatus('recording');
       startAudioMeter(stream);
       startElapsedTimer(() => {
@@ -531,6 +547,7 @@ export function useVoiceInput({
         }
       });
     } catch {
+      isStartingRef.current = false;
       cleanupAudioResources();
       mediaRecorderRef.current = null;
       setStatus('idle');

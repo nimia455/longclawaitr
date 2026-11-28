@@ -108,9 +108,12 @@ export function VoiceChatOverlay({
   const [gazeOffset, setGazeOffset] = useState({ x: 0, y: 0 });
 
   const localHistoryRef = useRef<VoiceHistoryItem[]>([]);
+  const wasOpenRef = useRef(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const playbackAudioCtxRef = useRef<AudioContext | null>(null);
   const playbackSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const playbackAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const playbackObjectUrlRef = useRef<string | null>(null);
   const playbackRafRef = useRef<number | null>(null);
   const speechSynthTimerRef = useRef<number | null>(null);
   const handsFreeTimerRef = useRef<number | null>(null);
@@ -140,12 +143,13 @@ export function VoiceChatOverlay({
     langRef.current = lang;
   }, [lang]);
 
-  // Seed local conversation history whenever the overlay opens
+  // Seed local conversation history only on closed -> open transition (not on every parent commit)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
       localHistoryRef.current = history.slice(-12);
       setErrorMsg(null);
     }
+    wasOpenRef.current = isOpen;
   }, [isOpen, history]);
 
   const stopPlayback = useCallback(() => {
@@ -172,6 +176,23 @@ export function VoiceChatOverlay({
       const ctx = playbackAudioCtxRef.current;
       playbackAudioCtxRef.current = null;
       void ctx.close().catch(() => {});
+    }
+    if (playbackAudioElRef.current) {
+      const el = playbackAudioElRef.current;
+      playbackAudioElRef.current = null;
+      try {
+        el.onended = null;
+        el.onerror = null;
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+      } catch {}
+    }
+    if (playbackObjectUrlRef.current) {
+      try {
+        URL.revokeObjectURL(playbackObjectUrlRef.current);
+      } catch {}
+      playbackObjectUrlRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
@@ -242,64 +263,94 @@ export function VoiceChatOverlay({
   );
 
   const playServerWavBase64 = useCallback(
-    async (base64Wav: string): Promise<boolean> => {
+    async (base64Wav: string, mimeType = 'audio/wav'): Promise<boolean> => {
+      const arrayBuffer = decodeBase64ToArrayBuffer(base64Wav);
       try {
         const AudioCtx =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext?: typeof AudioContext })
             .webkitAudioContext;
-        if (!AudioCtx) return false;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          playbackAudioCtxRef.current = ctx;
+          if (ctx.state === 'suspended') {
+            await ctx.resume().catch(() => {});
+          }
 
-        const ctx = new AudioCtx();
-        playbackAudioCtxRef.current = ctx;
-        if (ctx.state === 'suspended') {
-          await ctx.resume().catch(() => {});
-        }
+          // Pass a copy so fallback can still use arrayBuffer if decodeAudioData detaches/fails
+          const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
 
-        const arrayBuffer = decodeBase64ToArrayBuffer(base64Wav);
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          if (!isOpenRef.current || playbackAudioCtxRef.current !== ctx) {
+            void ctx.close().catch(() => {});
+            return true;
+          }
 
-        if (!isOpenRef.current || playbackAudioCtxRef.current !== ctx) {
-          void ctx.close().catch(() => {});
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.72;
+
+          source.connect(analyser);
+          analyser.connect(ctx.destination);
+          playbackSourceRef.current = source;
+
+          const samples = new Uint8Array(analyser.fftSize);
+          setPhase('speaking');
+
+          const tick = () => {
+            if (playbackAudioCtxRef.current !== ctx) return;
+            analyser.getByteTimeDomainData(samples);
+            let sumSq = 0;
+            for (let i = 0; i < samples.length; i++) {
+              const norm = (samples[i] - 128) / 128;
+              sumSq += norm * norm;
+            }
+            const rms = Math.sqrt(sumSq / samples.length);
+            setOutputLevel(Math.min(1, rms * 3.4));
+            playbackRafRef.current = requestAnimationFrame(tick);
+          };
+          playbackRafRef.current = requestAnimationFrame(tick);
+
+          await new Promise<void>((resolve) => {
+            source.onended = () => resolve();
+            source.start(0);
+          });
+
+          if (playbackAudioCtxRef.current === ctx) {
+            stopPlayback();
+          }
           return true;
         }
+      } catch {
+        stopPlayback();
+      }
 
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.72;
+      // Fallback: HTML5 <audio> Blob playback if Web Audio decodeAudioData fails on Safari/mobile
+      try {
+        if (!isOpenRef.current) return true;
+        const blob = new Blob([arrayBuffer], { type: mimeType || 'audio/wav' });
+        const objectUrl = URL.createObjectURL(blob);
+        playbackObjectUrlRef.current = objectUrl;
+        const audio = new Audio(objectUrl);
+        playbackAudioElRef.current = audio;
 
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
-        playbackSourceRef.current = source;
-
-        const samples = new Uint8Array(analyser.fftSize);
-        setPhase('speaking');
-
-        const tick = () => {
-          if (playbackAudioCtxRef.current !== ctx) return;
-          analyser.getByteTimeDomainData(samples);
-          let sumSq = 0;
-          for (let i = 0; i < samples.length; i++) {
-            const norm = (samples[i] - 128) / 128;
-            sumSq += norm * norm;
-          }
-          const rms = Math.sqrt(sumSq / samples.length);
-          setOutputLevel(Math.min(1, rms * 3.4));
-          playbackRafRef.current = requestAnimationFrame(tick);
-        };
-        playbackRafRef.current = requestAnimationFrame(tick);
-
-        await new Promise<void>((resolve) => {
-          source.onended = () => resolve();
-          source.start(0);
+        let step = 0;
+        const ok = await new Promise<boolean>((resolve) => {
+          audio.onplay = () => {
+            setPhase('speaking');
+            speechSynthTimerRef.current = window.setInterval(() => {
+              step += 0.4;
+              setOutputLevel(0.32 + 0.25 * Math.sin(step) + 0.15 * Math.sin(step * 2.1));
+            }, 65);
+          };
+          audio.onended = () => resolve(true);
+          audio.onerror = () => resolve(false);
+          audio.play().catch(() => resolve(false));
         });
 
-        if (playbackAudioCtxRef.current === ctx) {
-          stopPlayback();
-        }
-        return true;
+        stopPlayback();
+        return ok;
       } catch {
         stopPlayback();
         return false;
@@ -333,7 +384,7 @@ export function VoiceChatOverlay({
         if (!isStaticHostErrorResponse(ttsRes) && ttsRes.ok) {
           const data = await ttsRes.json().catch(() => ({}));
           if (typeof data?.audioBase64 === 'string' && data.audioBase64.length > 64) {
-            played = await playServerWavBase64(data.audioBase64);
+            played = await playServerWavBase64(data.audioBase64, data.mimeType || 'audio/wav');
           }
         }
       } catch (err: any) {
@@ -394,6 +445,8 @@ export function VoiceChatOverlay({
             transcript,
             history: localHistoryRef.current.slice(-12),
             lang: langRef.current,
+            nowIso: new Date().toISOString(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
           }),
         });
 
@@ -487,6 +540,11 @@ export function VoiceChatOverlay({
       void handleUserCommand(text);
     },
     onError: (msg) => {
+      const emptyMsg = TRANSLATIONS[langRef.current].chat.voice.emptyTranscript;
+      if (handsFreeRef.current && msg === emptyMsg) {
+        setPhase('idle');
+        return;
+      }
       setErrorMsg(msg);
       setPhase('idle');
     },
@@ -605,7 +663,7 @@ export function VoiceChatOverlay({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || e.pointerType !== 'mouse') return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const nx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
@@ -766,7 +824,15 @@ export function VoiceChatOverlay({
 
               {/* Subtle State + Current Shape & Mood Indicator */}
               <div className="mt-1 flex items-center gap-2 text-xs text-[var(--mut)]">
-                <span className="font-medium text-[var(--tx)]">{statusText}</span>
+                <span
+                  className={`font-medium ${
+                    phase === 'listening' || phase === 'speaking'
+                      ? 'text-[var(--editorial-accent)]'
+                      : 'text-[var(--tx)]'
+                  }`}
+                >
+                  {statusText}
+                </span>
                 <span aria-hidden="true">·</span>
                 <span>{shapeLabelMap[effectiveShape]}</span>
                 <span aria-hidden="true">·</span>
@@ -835,12 +901,12 @@ export function VoiceChatOverlay({
                       ? vc.interrupt
                       : vc.tapToSpeak
                 }
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-sm disabled:opacity-60 ${
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-60 ${
                   phase === 'listening'
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    ? 'bg-[var(--editorial-accent)] text-[var(--on)] hover:opacity-92'
                     : phase === 'speaking' || phase === 'thinking'
                       ? 'bg-[var(--tx)] text-[var(--bg)] hover:opacity-90'
-                      : 'bg-[var(--ac)] text-[var(--on)] hover:opacity-92'
+                      : 'btn-3d-primary'
                 }`}
               >
                 {phase === 'transcribing' || phase === 'thinking' ? (

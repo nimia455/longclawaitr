@@ -35,6 +35,15 @@ interface CodePreviewPanelProps {
   onClose: () => void;
 }
 
+function hashPreviewContent(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export function CodePreviewPanel({
   code,
   language,
@@ -50,9 +59,13 @@ export function CodePreviewPanel({
   const normalizedLang = normalizeCodeLanguage(language, code) || language || 'code';
 
   const [runCounter, setRunCounter] = useState(0);
+  const contentHash = useMemo(
+    () => hashPreviewContent(`${code}\0${siblingCss || ''}\0${siblingJs || ''}`),
+    [code, siblingCss, siblingJs]
+  );
   const runId = useMemo(
-    () => `lc-run-${runCounter}-${normalizedLang}-${code.length}`,
-    [runCounter, normalizedLang, code.length]
+    () => `lc-run-${runCounter}-${normalizedLang}-${contentHash}`,
+    [runCounter, normalizedLang, contentHash]
   );
 
   const previewDoc = useMemo(
@@ -164,13 +177,13 @@ export function CodePreviewPanel({
 
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 py-2">
           {/* Preview / Code Switch */}
-          <div className="flex items-center bg-[var(--surf)] p-1 rounded-full text-xs">
+          <div className="segmented-track-3d flex items-center p-1 rounded-full text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('preview')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-full font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'preview'
-                  ? 'bg-[var(--ac)] text-[var(--on)] shadow-xs'
+                  ? 'segmented-thumb-3d text-[var(--tx)]'
                   : 'text-[var(--mut)] hover:text-[var(--tx)]'
               }`}
             >
@@ -182,7 +195,7 @@ export function CodePreviewPanel({
               onClick={() => setActiveTab('code')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-full font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'code'
-                  ? 'bg-[var(--ac)] text-[var(--on)] shadow-xs'
+                  ? 'segmented-thumb-3d text-[var(--tx)]'
                   : 'text-[var(--mut)] hover:text-[var(--tx)]'
               }`}
             >
@@ -193,14 +206,14 @@ export function CodePreviewPanel({
 
           {/* Desktop / Mobile Viewport Toggle */}
           {activeTab === 'preview' && !previewDoc.isConsoleFirst && (
-            <div className="hidden sm:flex items-center bg-[var(--surf)] p-1 rounded-full border border-[var(--bd)]">
+            <div className="segmented-track-3d hidden sm:flex items-center p-1 rounded-full">
               <button
                 type="button"
                 onClick={() => setViewportMode('desktop')}
                 title={cp.desktopView}
                 className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                   viewportMode === 'desktop'
-                    ? 'bg-[var(--card)] text-[var(--tx)] shadow-xs'
+                    ? 'segmented-thumb-3d text-[var(--tx)]'
                     : 'text-[var(--mut)] hover:text-[var(--tx)]'
                 }`}
               >
@@ -212,7 +225,7 @@ export function CodePreviewPanel({
                 title={cp.mobileView}
                 className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                   viewportMode === 'mobile'
-                    ? 'bg-[var(--card)] text-[var(--tx)] shadow-xs'
+                    ? 'segmented-thumb-3d text-[var(--tx)]'
                     : 'text-[var(--mut)] hover:text-[var(--tx)]'
                 }`}
               >
@@ -287,9 +300,9 @@ export function CodePreviewPanel({
         {activeTab === 'preview' ? (
           <div className="flex-1 min-h-0 flex items-center justify-center overflow-auto p-0 sm:p-3">
             <div
-              className={`h-full transition-all duration-200 bg-white overflow-hidden ${
+              className={`h-full transition-all duration-200 bg-[var(--card)] overflow-hidden ${
                 viewportMode === 'mobile' && !previewDoc.isConsoleFirst
-                  ? 'w-[390px] max-w-full rounded-2xl border border-[var(--bd)] shadow-lg'
+                  ? 'w-[390px] max-w-full rounded-2xl surface-3d-elevated'
                   : 'w-full sm:rounded-xl border-0 sm:border border-[var(--bd)] shadow-xs'
               }`}
             >
@@ -299,7 +312,7 @@ export function CodePreviewPanel({
                 title={`${cp.liveResultTitle} (${normalizedLang})`}
                 srcDoc={previewDoc.srcDoc}
                 sandbox="allow-scripts allow-forms allow-modals"
-                className="w-full h-full border-0 bg-white"
+                className="w-full h-full border-0 bg-[var(--card)]"
               />
             </div>
           </div>
@@ -311,9 +324,9 @@ export function CodePreviewPanel({
           </div>
         )}
 
-        {/* Console Output Drawer */}
+        {/* Console Output Drawer + Mobile Copy/Download Controls */}
         <div className="border-t border-[var(--bd)] bg-[var(--card)] pb-[env(safe-area-inset-bottom)] shrink-0">
-          <div className="flex items-center justify-between px-3.5 py-2.5 sm:py-2 text-xs">
+          <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 sm:py-2 text-xs">
             <button
               type="button"
               onClick={() => setConsoleOpen((o) => !o)}
@@ -332,16 +345,47 @@ export function CodePreviewPanel({
               )}
             </button>
 
-            {consoleOpen && consoleLogs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setConsoleLogs([])}
-                className="inline-flex items-center gap-1 text-[11px] text-[var(--mut)] hover:text-[var(--tx)] cursor-pointer"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>{cp.clearConsole}</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {consoleOpen && consoleLogs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConsoleLogs([])}
+                  className="inline-flex items-center gap-1 text-[11px] text-[var(--mut)] hover:text-[var(--tx)] cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>{cp.clearConsole}</span>
+                </button>
+              )}
+
+              {/* Mobile-accessible Copy & Download actions */}
+              <div className="flex sm:hidden items-center gap-1 border-l border-[var(--bd)] pl-2">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  title={cp.copyCode}
+                  aria-label={cp.copyCode}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--surf)] text-[var(--mut)] hover:text-[var(--tx)] transition-colors cursor-pointer"
+                >
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-[11px] font-medium">
+                    {copied ? (lang === 'tr' ? 'Kopyalandı' : 'Copied') : (lang === 'tr' ? 'Kopyala' : 'Copy')}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  title={cp.downloadTitle}
+                  aria-label={cp.downloadTitle}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--surf)] text-[var(--mut)] hover:text-[var(--tx)] transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
 
           {consoleOpen && (
@@ -356,7 +400,7 @@ export function CodePreviewPanel({
                       entry.level === 'error'
                         ? 'text-red-500'
                         : entry.level === 'warn'
-                        ? 'text-amber-500'
+                        ? 'text-[var(--tx)] font-semibold'
                         : 'text-[var(--tx)]'
                     }`}
                   >

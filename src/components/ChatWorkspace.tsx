@@ -287,6 +287,7 @@ export function ChatWorkspace({
   // Input & streaming
   const [inputMessage, setInputMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingChatId, setStreamingChatId] = useState<string | null>(null);
   const [streamingThoughts, setStreamingThoughts] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
@@ -371,11 +372,25 @@ export function ChatWorkspace({
     setConnectorToggles((prev) => ({ ...prev, [id]: enabled }));
   };
 
+  const createMessageId = () =>
+    `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const isSyntheticErrorContent = (content?: string): boolean =>
+    Boolean(content && /^(?:⚠️|\[?(?:Hata|Error)\]?:)/i.test(content.trim()));
+
   const isImageGenerationPrompt = (prompt: string): boolean => {
     const trimmed = prompt.trim();
     if (!trimmed) return false;
-    // Skip if the user is clearly asking for source code
-    if (/\b(html|css|react|tsx|jsx|python|javascript|typescript|svg\s+kodu|kod\s+yaz)\b/i.test(trimmed)) {
+    // Never hijack coding model prompts into image generation unless user toggled imageMode or /image
+    if (selectedModel === 'longclaw-ultracode-1') {
+      return false;
+    }
+    // Skip if the user is clearly asking for source code, UI, diagrams, or engineering artifacts
+    if (
+      /\b(html|css|react|tsx|jsx|python|javascript|typescript|svg\s+kodu|kod\s+yaz|chart|diagram|flowchart|mermaid|canvas|component|button|page|ui|dashboard|form|card|navbar|game|animation|shader|three|webgl|api|sql|class|function|grafik|diyagram|bileşen|arayüz|oyun|web\s+sitesi|uygulama)\b/i.test(
+        trimmed
+      )
+    ) {
       return false;
     }
     return /(resim\s*(çiz|oluştur|yap|üret|hazırla)|görsel\s*(çiz|oluştur|yap|üret|hazırla)|resmini\s*(çiz|yap|oluştur)|illüstrasyon\s*(çiz|oluştur|yap)|çizim\s*(yap|oluştur)|bana\s+.*\s+(çiz|resmet)|\b(draw|paint|illustrate)\s+(me\s+)?(a|an|the)\b|\b(generate|create|make)\s+(me\s+)?(a|an)\s+(image|picture|artwork|illustration|poster|wallpaper)\b)/i.test(
@@ -393,6 +408,7 @@ export function ChatWorkspace({
   const streamRafRef = useRef<number | null>(null);
   const streamDrainResolveRef = useRef<(() => void) | null>(null);
   const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollCheckRafRef = useRef<number | null>(null);
   const isNearBottomRef = useRef<boolean>(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -451,15 +467,19 @@ export function ChatWorkspace({
       const remaining = target.length - shown;
 
       if (remaining > 0) {
-        // ChatGPT-like smooth adaptive cadence: crisp 1-by-1 typing normally,
-        // smoothly accelerating when a large burst arrives so it never lags behind.
+        // Smooth adaptive cadence: crisp typing for prose, smoothly accelerating for large code bursts
         let charsPerSec: number;
         if (streamDoneRef.current) {
-          charsPerSec = Math.min(540, Math.max(72, 54 + remaining * 1.2));
+          charsPerSec =
+            remaining > 400
+              ? Math.min(3600, Math.max(480, remaining * 2.2))
+              : Math.min(680, Math.max(84, 60 + remaining * 1.35));
         } else if (remaining <= 36) {
-          charsPerSec = 44 + remaining * 0.38;
+          charsPerSec = 46 + remaining * 0.4;
+        } else if (remaining > 400) {
+          charsPerSec = Math.min(2400, 320 + remaining * 1.4);
         } else {
-          charsPerSec = Math.min(420, 50 + remaining * 0.75);
+          charsPerSec = Math.min(540, 56 + remaining * 0.85);
         }
 
         charBudget += (charsPerSec * dt) / 1000;
@@ -504,7 +524,19 @@ export function ChatWorkspace({
   };
 
   useEffect(() => {
+    const handleVisibility = () => {
+      if (
+        typeof document !== 'undefined' &&
+        !document.hidden &&
+        !streamCancelledRef.current &&
+        streamDisplayedLenRef.current < streamTargetTextRef.current.length
+      ) {
+        startTypewriterPacer();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       streamCancelledRef.current = true;
       stopTypewriterPacer();
     };
@@ -938,13 +970,26 @@ export function ChatWorkspace({
 
   // Smart auto-scroll: follow new messages/streaming only when user is already near the bottom
   const handleMessagesScroll = () => {
-    const el = messagesScrollRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const nearBottom = distanceFromBottom < 120;
-    isNearBottomRef.current = nearBottom;
-    setShowScrollToBottom(!nearBottom && (currentChat?.messages?.length || 0) > 0);
+    if (scrollCheckRafRef.current !== null) return;
+    scrollCheckRafRef.current = requestAnimationFrame(() => {
+      scrollCheckRafRef.current = null;
+      const el = messagesScrollRef.current;
+      if (!el) return;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distanceFromBottom < 120;
+      isNearBottomRef.current = nearBottom;
+      const shouldShow = !nearBottom && (currentChat?.messages?.length || 0) > 0;
+      setShowScrollToBottom((prev) => (prev === shouldShow ? prev : shouldShow));
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      if (scrollCheckRafRef.current !== null) {
+        cancelAnimationFrame(scrollCheckRafRef.current);
+      }
+    };
+  }, []);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     isNearBottomRef.current = true;
@@ -954,10 +999,17 @@ export function ChatWorkspace({
 
   useEffect(() => {
     if (!isNearBottomRef.current) return;
-    messagesEndRef.current?.scrollIntoView({
-      behavior: streamingText ? 'auto' : 'smooth',
-    });
-  }, [currentChat?.messages?.length, streamingText]);
+    const el = messagesScrollRef.current;
+    if (streamingText && streamingChatId === currentChat?.id && el) {
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    if (!streamingText) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: 'smooth',
+      });
+    }
+  }, [currentChat?.messages?.length, streamingText, streamingChatId, currentChat?.id]);
 
   // Adjust textarea height dynamically
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1018,6 +1070,33 @@ export function ChatWorkspace({
     }, 10);
   };
 
+  const abortActiveStreamSilently = () => {
+    streamCancelledRef.current = true;
+    stopTypewriterPacer();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    streamingChatRef.current = null;
+    streamTargetTextRef.current = '';
+    streamDisplayedLenRef.current = 0;
+    streamDisplayedTextRef.current = '';
+    streamDoneRef.current = false;
+    setIsStreaming(false);
+    setStreamingChatId(null);
+    setGeneratingImage(false);
+    setCheckingWorkspaceLabel(null);
+    setStreamingText('');
+    setStreamingThoughts('');
+  };
+
+  const handleDeleteChatSafe = (id: string) => {
+    if (streamingChatRef.current?.id === id) {
+      abortActiveStreamSilently();
+    }
+    onDeleteChat(id);
+  };
+
   const handleStopStreaming = () => {
     streamCancelledRef.current = true;
     stopTypewriterPacer();
@@ -1027,6 +1106,7 @@ export function ChatWorkspace({
       abortControllerRef.current = null;
     }
     setIsStreaming(false);
+    setStreamingChatId(null);
     setGeneratingImage(false);
     setCheckingWorkspaceLabel(null);
 
@@ -1040,7 +1120,7 @@ export function ChatWorkspace({
       const updatedMessages = [
         ...baseMessages,
         {
-          id: `msg-${Date.now()}`,
+          id: createMessageId(),
           role: 'assistant' as const,
           content: visiblePartialText || cText.stoppedFallback,
           thoughts: streamingThoughts,
@@ -1061,7 +1141,11 @@ export function ChatWorkspace({
 
   const handleSendMessage = async (
     textToSend?: string,
-    overrideImages?: AttachedImage[]
+    overrideImages?: AttachedImage[],
+    options?: {
+      reuseExistingHistory?: ChatMessage[];
+      targetChatOverride?: ChatSession;
+    }
   ) => {
     if (isStreaming || voice.isRecording || voice.isTranscribing) return;
     const rawText = (textToSend !== undefined ? textToSend : inputMessage).trim();
@@ -1188,25 +1272,39 @@ export function ChatWorkspace({
       textareaRef.current.style.height = 'auto';
     }
 
-    const targetChat = currentChat || onCreateChat(effectiveDepth);
+    const liveCurrentChat =
+      options?.targetChatOverride ||
+      (currentChatIdRef.current
+        ? chatsRef.current.find((c) => c.id === currentChatIdRef.current) || currentChat
+        : currentChat);
+    const targetChat = liveCurrentChat || onCreateChat(effectiveDepth);
 
-    const newUserMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
-      content: displayText,
-      ...(imagesToSend.length > 0 ? { images: imagesToSend } : {}),
-      createdAt: Date.now(),
-    };
+    let updatedWithUser: ChatMessage[];
+    let activeUserMsgId: string;
 
-    const currentList = targetChat.messages || [];
-    const updatedWithUser = [...currentList, newUserMsg];
+    if (options?.reuseExistingHistory && options.reuseExistingHistory.length > 0) {
+      updatedWithUser = options.reuseExistingHistory;
+      activeUserMsgId = updatedWithUser[updatedWithUser.length - 1].id;
+    } else {
+      const newUserMsg: ChatMessage = {
+        id: createMessageId(),
+        role: 'user',
+        content: displayText,
+        ...(imagesToSend.length > 0 ? { images: imagesToSend } : {}),
+        createdAt: Date.now(),
+      };
+      const currentList = targetChat.messages || [];
+      updatedWithUser = [...currentList, newUserMsg];
+      activeUserMsgId = newUserMsg.id;
+      // Optimistically update without blocking the network request
+      void onUpdateChatMessages(targetChat.id, updatedWithUser);
+    }
+
     streamingChatRef.current = { id: targetChat.id, messages: updatedWithUser };
-
-    // Optimistically update without blocking the network request
-    void onUpdateChatMessages(targetChat.id, updatedWithUser);
 
     // Prepare API call
     setIsStreaming(true);
+    setStreamingChatId(targetChat.id);
     setStreamingText('');
     setStreamingThoughts('');
     setGeneratingImage(wantsImage);
@@ -1250,7 +1348,7 @@ export function ChatWorkspace({
           setCheckingWorkspaceLabel(null);
 
           const finalDuration = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-          const assistantMsgId = `msg-${Date.now()}`;
+          const assistantMsgId = createMessageId();
           const content =
             outcome.status === 'done' ? outcome.markdown : outcome.previewMarkdown;
 
@@ -1293,7 +1391,7 @@ export function ChatWorkspace({
             setWorkspaceConnected(false);
             setWorkspaceEmail(null);
             const reauthMsg: ChatMessage = {
-              id: `msg-${Date.now()}`,
+              id: createMessageId(),
               role: 'assistant',
               content:
                 lang === 'tr'
@@ -1359,7 +1457,7 @@ export function ChatWorkspace({
 
         const finalDuration = Math.max(1, Math.round((Date.now() - startTime) / 1000));
         const newAssistantMsg: ChatMessage = {
-          id: `msg-${Date.now()}`,
+          id: createMessageId(),
           role: 'assistant',
           content:
             imgData.caption ||
@@ -1562,28 +1660,39 @@ export function ChatWorkspace({
         throw new Error(getStaticHostNotice(lang));
       }
 
+      const apiMessages = updatedWithUser
+        .map((m, idx) => ({
+          m,
+          idx,
+          content: m.id === activeUserMsgId ? promptForApi : m.content,
+        }))
+        .filter(({ m, content }) => !(m.role === 'assistant' && isSyntheticErrorContent(content)))
+        .map(({ m, idx, content }) => ({
+          role: m.role,
+          content,
+          ...(imageMsgIndices.has(idx) && m.images?.length
+            ? {
+                images: m.images.map((img) => ({
+                  mimeType: img.mimeType,
+                  dataUrl: img.dataUrl,
+                  name: img.name,
+                })),
+              }
+            : {}),
+        }));
+
       const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
-          messages: updatedWithUser.map((m, idx) => ({
-            role: m.role,
-            content: m.id === newUserMsg.id ? promptForApi : m.content,
-            ...(imageMsgIndices.has(idx) && m.images?.length
-              ? {
-                  images: m.images.map((img) => ({
-                    mimeType: img.mimeType,
-                    dataUrl: img.dataUrl,
-                    name: img.name,
-                  })),
-                }
-              : {}),
-          })),
+          messages: apiMessages,
           depth: effectiveDepth,
           mode: 'chat',
           model: selectedModel,
           lang,
+          nowIso: new Date().toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
           gmailConnected: workspaceConnected && connectorToggles.gmail,
           gmailContext,
           workspaceContext,
@@ -1618,7 +1727,9 @@ export function ChatWorkspace({
         if (!line) return;
         try {
           const event = JSON.parse(line);
-          if (event.t === 'tx') {
+          if (event.t === 'hb') {
+            return;
+          } else if (event.t === 'tx') {
             accumulatedText += event.x;
             streamTargetTextRef.current = accumulatedText;
             startTypewriterPacer();
@@ -1694,7 +1805,7 @@ export function ChatWorkspace({
 
       const finalDuration = Math.max(1, Math.round((Date.now() - startTime) / 1000));
       const newAssistantMsg: ChatMessage = {
-        id: `msg-${Date.now()}`,
+        id: createMessageId(),
         role: 'assistant',
         content: accumulatedText || cText.noResponseFallback,
         thoughts: accumulatedThoughts,
@@ -1737,7 +1848,7 @@ export function ChatWorkspace({
       if (err.name === 'AbortError') return;
       console.error('Chat error:', err);
       const errorMsg: ChatMessage = {
-        id: `msg-${Date.now()}`,
+        id: createMessageId(),
         role: 'assistant',
         content: cText.chatErrorMessage(err.message || cText.connectionError),
         createdAt: Date.now(),
@@ -1750,6 +1861,7 @@ export function ChatWorkspace({
       streamDisplayedTextRef.current = '';
       streamDoneRef.current = false;
       setIsStreaming(false);
+      setStreamingChatId(null);
       setGeneratingImage(false);
       setCheckingWorkspaceLabel(null);
       setStreamingText('');
@@ -1760,15 +1872,24 @@ export function ChatWorkspace({
   };
 
   const handleRegenerate = async () => {
-    if (isStreaming || !currentChat?.messages?.length) return;
-    const msgs = [...currentChat.messages];
-    if (msgs[msgs.length - 1].role === 'assistant') {
+    if (isStreaming) return;
+    const liveChat =
+      (currentChatIdRef.current
+        ? chatsRef.current.find((c) => c.id === currentChatIdRef.current)
+        : null) || currentChat;
+    if (!liveChat?.messages?.length) return;
+
+    const msgs = [...liveChat.messages];
+    while (msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') {
       msgs.pop();
     }
     const lastUser = msgs[msgs.length - 1];
     if (lastUser && lastUser.role === 'user') {
-      await onUpdateChatMessages(currentChat.id, msgs);
-      handleSendMessage(lastUser.content, lastUser.images || []);
+      await onUpdateChatMessages(liveChat.id, msgs);
+      void handleSendMessage(lastUser.content, lastUser.images || [], {
+        reuseExistingHistory: msgs,
+        targetChatOverride: { ...liveChat, messages: msgs },
+      });
     }
   };
 
@@ -1938,14 +2059,14 @@ export function ChatWorkspace({
       {/* Sidebar Overlay on mobile */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-[1px] md:hidden"
+          className="fixed inset-0 z-30 bg-black/45 md:hidden"
           onClick={() => onSetMobileMenuOpen(false)}
         />
       )}
 
       {/* Architectural Sidebar */}
       <aside
-        className={`sidebar-3d fixed md:static inset-y-0 left-0 z-40 h-full shrink-0 overflow-hidden border-[var(--bd)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] w-[82vw] max-w-[300px] md:w-[276px] border-r ${
+        className={`sidebar-3d fixed md:static inset-y-0 left-0 z-40 h-full shrink-0 overflow-hidden border-[var(--bd)] transition-transform md:transition-[width,opacity,transform] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform w-[82vw] max-w-[300px] md:w-[276px] border-r ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0 ${
           sidebarOpen
@@ -2048,119 +2169,158 @@ export function ChatWorkspace({
           </div>
 
           {/* Chats List */}
-          <div className="flex-1 overflow-y-auto space-y-1 pr-0.5">
+          <div className="scroll-touch-smooth flex-1 overflow-y-auto space-y-3 pr-0.5">
             {filteredChats.length === 0 ? (
               <div className="text-center py-8 text-xs text-[var(--mut)]">
                 {searchQuery ? cText.noResults : cText.noChatsYet}
               </div>
             ) : (
-              filteredChats.map((c) => {
-                const isActive = c.id === currentChat?.id;
-                const isEditing = editingTitleId === c.id;
+              (() => {
+                const pinnedChats = filteredChats.filter((c) => c.pin);
+                const recentChats = filteredChats.filter((c) => !c.pin);
+                const sections = [
+                  ...(pinnedChats.length > 0
+                    ? [
+                        {
+                          id: 'pinned',
+                          label: lang === 'tr' ? 'Sabitlenenler' : 'Pinned',
+                          items: pinnedChats,
+                        },
+                      ]
+                    : []),
+                  ...(recentChats.length > 0
+                    ? [
+                        {
+                          id: 'recent',
+                          label: lang === 'tr' ? 'Son sohbetler' : 'Recent',
+                          items: recentChats,
+                        },
+                      ]
+                    : []),
+                ];
 
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => {
-                      onSelectChat(c.id);
-                      onSetMobileMenuOpen(false);
-                    }}
-                  className={`group relative flex items-center gap-2 px-3 py-2.5 md:py-2 min-h-[42px] md:min-h-0 rounded-lg text-[13.5px] md:text-[13px] font-medium cursor-pointer transition-all border ${
-                    isActive
-                      ? 'surface-3d text-[var(--tx)] font-semibold'
-                      : 'border-transparent text-[var(--mut)] hover:bg-[var(--card)]/55 hover:text-[var(--tx)]'
-                  }`}
-                >
-                  {isEditing ? (
+                const renderChatRow = (c: ChatSession) => {
+                  const isActive = c.id === currentChat?.id;
+                  const isEditing = editingTitleId === c.id;
+
+                  return (
                     <div
-                      className="flex items-center gap-1.5 w-full"
-                      onClick={(e) => e.stopPropagation()}
+                      key={c.id}
+                      onClick={() => {
+                        onSelectChat(c.id);
+                        onSetMobileMenuOpen(false);
+                      }}
+                      className={`group relative flex items-center gap-2 px-3 py-2.5 md:py-2 min-h-[42px] md:min-h-0 rounded-xl text-[13.5px] md:text-[13px] font-medium cursor-pointer transition-colors border ${
+                        isActive
+                          ? 'bg-[var(--card)] border-[var(--bd)] text-[var(--tx)] font-semibold shadow-[0_1px_2px_rgba(23,22,20,0.05)]'
+                          : 'border-transparent text-[var(--mut)] hover:bg-[var(--card)]/60 hover:text-[var(--tx)]'
+                      }`}
                     >
-                      <input
-                        type="text"
-                        value={editTitleInput}
-                        onChange={(e) => setEditTitleInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            onRenameChat(c.id, editTitleInput);
-                            setEditingTitleId(null);
-                          } else if (e.key === 'Escape') {
-                            setEditingTitleId(null);
-                          }
-                        }}
-                        autoFocus
-                        className="flex-1 bg-[var(--bg)] border border-[var(--bd)] px-2 py-1 rounded text-base md:text-xs text-[var(--tx)] outline-none"
-                      />
-                      <button
-                        onClick={() => {
-                          onRenameChat(c.id, editTitleInput);
-                          setEditingTitleId(null);
-                        }}
-                        className="p-1.5 hover:text-emerald-500"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setEditingTitleId(null)}
-                        className="p-1.5 hover:text-red-500"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {isEditing ? (
+                        <div
+                          className="flex items-center gap-1.5 w-full"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="text"
+                            value={editTitleInput}
+                            onChange={(e) => setEditTitleInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                onRenameChat(c.id, editTitleInput);
+                                setEditingTitleId(null);
+                              } else if (e.key === 'Escape') {
+                                setEditingTitleId(null);
+                              }
+                            }}
+                            autoFocus
+                            className="flex-1 bg-[var(--bg)] border border-[var(--bd)] px-2 py-1 rounded-lg text-base md:text-xs text-[var(--tx)] outline-none focus:border-[var(--tx)]/40"
+                          />
+                          <button
+                            onClick={() => {
+                              onRenameChat(c.id, editTitleInput);
+                              setEditingTitleId(null);
+                            }}
+                            className="p-1.5 hover:text-emerald-500 cursor-pointer"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditingTitleId(null)}
+                            className="p-1.5 hover:text-red-500 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {c.pin && (
+                            <Pin className="w-3 h-3 text-[var(--editorial-accent)] shrink-0" />
+                          )}
+                          <span className="flex-1 truncate">{formatChatTitle(c.title)}</span>
+
+                          <div
+                            className={`flex items-center gap-0.5 transition-opacity ${
+                              isActive
+                                ? 'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                                : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                          >
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTogglePinChat(c.id);
+                              }}
+                              className={`p-2 md:p-1 rounded-lg hover:bg-[var(--surf)] cursor-pointer ${
+                                c.pin ? 'text-[var(--editorial-accent)]' : 'text-[var(--mut)] hover:text-[var(--tx)]'
+                              }`}
+                              title={c.pin ? cText.unpinTitle : cText.pinTitle}
+                            >
+                              <Pin className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTitleId(c.id);
+                                setEditTitleInput(formatChatTitle(c.title));
+                              }}
+                              className="p-2 md:p-1 rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] cursor-pointer"
+                              title={cText.renameTitle}
+                            >
+                              <Pencil className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteChatSafe(c.id);
+                              }}
+                              className="p-2 md:p-1 rounded-lg text-[var(--mut)] hover:text-red-500 hover:bg-[var(--surf)] cursor-pointer"
+                              title={cText.deleteTitle}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <span className="flex-1 truncate">{formatChatTitle(c.title)}</span>
+                  );
+                };
 
-                      <div
-                        className={`flex items-center gap-0.5 transition-opacity ${
-                          isActive
-                            ? 'opacity-100 md:opacity-0 md:group-hover:opacity-100'
-                            : 'opacity-0 group-hover:opacity-100'
-                        }`}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTogglePinChat(c.id);
-                          }}
-                          className={`p-2 md:p-1 rounded-lg hover:bg-[var(--surf)] ${
-                            c.pin ? 'opacity-100 text-[var(--tx)]' : 'text-[var(--mut)]'
-                          }`}
-                          title={c.pin ? cText.unpinTitle : cText.pinTitle}
-                        >
-                          <Pin className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingTitleId(c.id);
-                            setEditTitleInput(formatChatTitle(c.title));
-                          }}
-                          className="p-2 md:p-1 rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]"
-                          title={cText.renameTitle}
-                        >
-                          <Pencil className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteChat(c.id);
-                          }}
-                          className="p-2 md:p-1 rounded-lg text-[var(--mut)] hover:text-red-500 hover:bg-[var(--surf)]"
-                          title={cText.deleteTitle}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        </button>
+                return sections.map((section) => (
+                  <div key={section.id} className="space-y-1">
+                    {pinnedChats.length > 0 && (
+                      <div className="px-3 pt-1 pb-0.5 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[var(--mut)]/80 select-none">
+                        {section.label}
                       </div>
-                    </>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+                    )}
+                    {section.items.map(renderChatRow)}
+                  </div>
+                ));
+              })()
+            )}
+          </div>
 
         {/* User Profile Footer */}
         <div ref={profileMenuRef} className="relative pt-2 border-t border-[var(--bd)]">
@@ -2185,7 +2345,7 @@ export function ChatWorkspace({
                     <div className="pt-0.5">
                       <span
                         className={`inline-flex items-center gap-1 text-[10px] font-medium ${
-                          user.emailVerified ? 'text-emerald-500' : 'text-amber-500'
+                          user.emailVerified ? 'text-[var(--tx)]' : 'text-[var(--mut)]'
                         }`}
                       >
                         <ShieldCheck className="w-3 h-3" />
@@ -2200,7 +2360,7 @@ export function ChatWorkspace({
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-[var(--surf)] text-[var(--tx)] cursor-pointer"
               >
                 <UserIcon className="w-4 h-4" />
-                <span>{lang === 'tr' ? 'Profil & logo' : 'Profile & logo'}</span>
+                <span>{lang === 'tr' ? 'Profil' : 'Profile'}</span>
               </button>
 
               <button
@@ -2308,7 +2468,7 @@ export function ChatWorkspace({
       {/* Main Chat Canvas */}
       <main className="ambient-chat-canvas flex-1 flex flex-col min-w-0 h-full relative">
         {/* Calm Minimal Top Bar */}
-        <header className="relative z-10 min-h-14 pt-[env(safe-area-inset-top)] px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 bg-[var(--bg)]/72 backdrop-blur-xl border-b border-[var(--bd)]/65 shrink-0">
+        <header className="relative z-10 min-h-14 pt-[env(safe-area-inset-top)] px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 bg-[var(--bg)]/94 md:bg-[var(--bg)]/78 md:backdrop-blur-lg border-b border-[var(--bd)]/65 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
             <button
               onClick={() => onSetMobileMenuOpen(true)}
@@ -2331,6 +2491,18 @@ export function ChatWorkspace({
                 <PanelLeftOpen className="w-4 h-4" />
               )}
             </button>
+
+            {!sidebarOpen && (
+              <button
+                type="button"
+                onClick={onNewChat}
+                className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-full text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
+                aria-label={cText.newChatTitle}
+                title={`${cText.newChatTitle} (${modKey}+K)`}
+              >
+                <SquarePen className="w-4 h-4" />
+              </button>
+            )}
 
             <h2 className="font-soft text-[15px] font-semibold tracking-tight truncate min-w-0">
               {formatChatTitle(currentChat?.title)}
@@ -2370,7 +2542,11 @@ export function ChatWorkspace({
                         aria-hidden="true"
                       />
                     )}
-                    <Icon className="relative z-10 w-3.5 h-3.5" />
+                    <Icon
+                      className={`relative z-10 w-3.5 h-3.5 transition-colors ${
+                        active ? 'text-[var(--editorial-accent)]' : ''
+                      }`}
+                    />
                     <span className="relative z-10 hidden sm:inline">{label}</span>
                   </motion.button>
                 );
@@ -2381,8 +2557,8 @@ export function ChatWorkspace({
 
         {/* Email Verification Banner (when user has an unverified email) */}
         {user && user.email && !user.emailVerified && userVersion >= 0 && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+          <div className="bg-[var(--surf)] border-b border-[var(--bd)] px-4 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[var(--tx)]">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span>
                 {emailVerifyStatus || cText.emailUnverifiedBanner(user.email)}
@@ -2403,7 +2579,7 @@ export function ChatWorkspace({
                     setCheckingVerify(false);
                   }
                 }}
-                className="px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-medium cursor-pointer"
+                className="btn-3d-primary px-3 py-1 rounded-full font-medium cursor-pointer"
               >
                 {cText.sendVerification}
               </button>
@@ -2423,7 +2599,7 @@ export function ChatWorkspace({
                     setCheckingVerify(false);
                   }
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-500/30 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium cursor-pointer"
+                className="btn-3d-soft inline-flex items-center gap-1 px-3 py-1 rounded-full font-medium cursor-pointer"
               >
                 <RefreshCw className={`w-3 h-3 ${checkingVerify ? 'animate-spin' : ''}`} />
                 <span>{cText.checkAgain}</span>
@@ -2436,7 +2612,7 @@ export function ChatWorkspace({
         <div
           ref={messagesScrollRef}
           onScroll={handleMessagesScroll}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 pt-5 pb-6 sm:px-8 sm:py-8 flex flex-col"
+          className="scroll-touch-smooth flex-1 overflow-y-auto overflow-x-hidden px-3.5 pt-5 pb-6 sm:px-8 sm:py-8 flex flex-col"
         >
           <div className="w-full max-w-[46rem] mx-auto space-y-5 sm:space-y-7 min-w-0 flex-1 flex flex-col">
             {(!currentChat?.messages || currentChat.messages.length === 0) &&
@@ -2456,21 +2632,23 @@ export function ChatWorkspace({
                 const quickPrompts = cText.suggestions.slice(0, 3);
 
                 return (
-                  <div className="flex-1 flex flex-col justify-center py-8 px-1 space-y-8 animate-up max-w-2xl mx-auto w-full text-center">
-                    <div className="space-y-3 flex flex-col items-center">
-                      <LongclawLogo className="w-[39px] h-[39px] text-[var(--tx)]" />
-                      <h3 className="font-serif-fraunces text-[1.95rem] sm:text-[2.45rem] font-medium tracking-[-0.02em] leading-[1.12] text-balance text-[var(--tx)]">
+                  <div className="flex-1 flex flex-col justify-center py-8 px-1 space-y-9 animate-up max-w-2xl mx-auto w-full text-center">
+                    <div className="space-y-3.5 flex flex-col items-center">
+                      <div className="w-11 h-11 rounded-2xl bg-[var(--card)] border border-[var(--bd)] flex items-center justify-center">
+                        <LongclawLogo className="w-[24px] h-[24px] text-[var(--tx)]" />
+                      </div>
+                      <h3 className="font-display text-[2.05rem] sm:text-[2.65rem] font-medium tracking-[-0.025em] leading-[1.1] text-balance text-[var(--tx)]">
                         {greeting}
                       </h3>
-                      <div className="flex items-center justify-center gap-2 text-xs text-[var(--mut)]">
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-[var(--mut)]">
                         <ModelLogo modelId={selectedModel} className="w-[17px] h-[17px] shrink-0" />
                         <span className="font-medium text-[var(--tx)]">{activeModel.name}</span>
-                        <span aria-hidden="true">·</span>
+                        <span aria-hidden="true" className="text-[var(--editorial-accent)]">·</span>
                         <span>{t.models[selectedModel].tagline}</span>
                       </div>
                     </div>
 
-                    {/* Calm Starter Cards */}
+                    {/* Calm Editorial Starter Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
                       {quickPrompts.map((prompt, i) => (
                         <motion.button
@@ -2492,12 +2670,12 @@ export function ChatWorkspace({
                               handleSendMessage(prompt);
                             }
                           }}
-                          className="tile-3d group p-4 rounded-2xl text-left flex flex-col justify-between gap-4 min-h-[104px] cursor-pointer"
+                          className="tile-3d group p-4 rounded-2xl text-left flex flex-col justify-between gap-4 min-h-[108px] cursor-pointer"
                         >
                           <span className="text-[13.5px] font-medium text-[var(--tx)] leading-snug">
                             {prompt}
                           </span>
-                          <ArrowUpRight className="w-4 h-4 text-[var(--mut)] group-hover:text-[var(--tx)] transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0 self-end" />
+                          <ArrowUpRight className="w-4 h-4 text-[var(--mut)] group-hover:text-[var(--editorial-accent)] transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0 self-end" />
                         </motion.button>
                       ))}
                     </div>
@@ -2571,7 +2749,7 @@ export function ChatWorkspace({
                             }
                             className="btn-3d-soft inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[var(--mut)] hover:text-[var(--tx)] cursor-pointer"
                           >
-                            <ReasoningIcon className="w-3.5 h-3.5 text-[var(--ac)] shrink-0" />
+                            <ReasoningIcon className="w-3.5 h-3.5 text-[var(--editorial-accent)] shrink-0" />
                             <span className="font-medium">
                               {cText.thoughtsLabel}{' '}
                               {msg.dur ? `· ${msg.dur} ${cText.secondsShort}` : ''}
@@ -2770,8 +2948,8 @@ export function ChatWorkspace({
               </div>
             ))}
 
-            {/* Live Streaming Bubble */}
-            {isStreaming && (
+            {/* Live Streaming Bubble (scoped strictly to the chat being streamed) */}
+            {isStreaming && streamingChatId === currentChat?.id && (
               <div className="w-full flex gap-3.5 items-start animate-pop">
                 <div className="w-8 h-8 rounded-full bg-[var(--surf)] border border-[var(--bd)] flex items-center justify-center shrink-0 mt-0.5 text-[var(--tx)]">
                   <LongclawLogo className="w-[17px] h-[17px]" />
@@ -2781,7 +2959,7 @@ export function ChatWorkspace({
                   {streamingThoughts && (
                     <div className="text-xs text-[var(--mut)] space-y-1.5">
                       <div className="flex items-center gap-1.5 font-medium py-0.5">
-                        <ReasoningIcon className="w-3.5 h-3.5 text-[var(--ac)] shrink-0" />
+                        <ReasoningIcon className="w-3.5 h-3.5 text-[var(--editorial-accent)] shrink-0" />
                         <span className="animate-shimmer">{cText.thinking}</span>
                       </div>
                       <p className="well-3d p-3 rounded-xl text-[13px] whitespace-pre-line leading-relaxed">
@@ -2802,7 +2980,7 @@ export function ChatWorkspace({
                   ) : generatingImage ? (
                     <div className="space-y-2.5 py-1">
                       <div className="flex items-center gap-2 text-xs text-[var(--mut)]">
-                        <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+                        <ImageIcon className="w-3.5 h-3.5 text-[var(--editorial-accent)] shrink-0" />
                         <span className="animate-shimmer">
                           {lang === 'tr'
                             ? 'Görselin oluşturuluyor…'
@@ -2815,23 +2993,34 @@ export function ChatWorkspace({
                     </div>
                   ) : checkingWorkspaceLabel ? (
                     <div className="flex items-center gap-2 py-2 text-xs text-[var(--mut)]">
-                      <ConnectorsIcon className="w-3.5 h-3.5 shrink-0" />
+                      <ConnectorsIcon className="w-3.5 h-3.5 text-[var(--editorial-accent)] shrink-0" />
                       <span className="animate-shimmer">{checkingWorkspaceLabel}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 py-2.5" aria-label={cText.thinking}>
-                      <span
-                        className="w-[7px] h-[7px] rounded-full bg-[var(--mut)] animate-[bn_1.1s_infinite]"
-                        style={{ animationDelay: '0s' }}
-                      />
-                      <span
-                        className="w-[7px] h-[7px] rounded-full bg-[var(--mut)] animate-[bn_1.1s_infinite]"
-                        style={{ animationDelay: '0.15s' }}
-                      />
-                      <span
-                        className="w-[7px] h-[7px] rounded-full bg-[var(--mut)] animate-[bn_1.1s_infinite]"
-                        style={{ animationDelay: '0.3s' }}
-                      />
+                    <div
+                      className="inline-flex flex-col gap-2 py-1.5"
+                      role="status"
+                      aria-label={cText.thinking}
+                    >
+                      <div className="flex items-center gap-2 text-xs font-medium text-[var(--mut)]">
+                        <ReasoningIcon className="w-3.5 h-3.5 text-[var(--editorial-accent)] shrink-0" />
+                        <span className="animate-shimmer">{cText.thinking}</span>
+                      </div>
+                      <div
+                        className="w-28 h-[2px] rounded-full bg-[var(--bd)]/75 overflow-hidden relative"
+                        aria-hidden="true"
+                      >
+                        <motion.span
+                          className="absolute inset-y-0 left-0 w-1/2 rounded-full bg-[var(--editorial-accent)]/85"
+                          initial={{ x: '-100%' }}
+                          animate={{ x: '220%' }}
+                          transition={{
+                            duration: 1.35,
+                            repeat: Infinity,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2925,7 +3114,11 @@ export function ChatWorkspace({
                             {cmd.connectorId === 'tasks' && (
                               <GoogleTasksIcon className="w-3.5 h-3.5 shrink-0" />
                             )}
-                            <span className="font-mono text-xs font-semibold text-[var(--tx)] shrink-0">
+                            <span
+                              className={`font-mono text-xs font-semibold shrink-0 ${
+                                active ? 'text-[var(--editorial-accent)]' : 'text-[var(--tx)]'
+                              }`}
+                            >
                               /{cmd.name}
                             </span>
                             <span className="text-xs text-[var(--mut)] truncate">
@@ -2963,8 +3156,8 @@ export function ChatWorkspace({
                   void processIncomingFiles(e.dataTransfer.files);
                 }
               }}
-              className={`composer-3d relative rounded-3xl px-4 pt-3.5 pb-2.5 sm:px-4.5 sm:pt-4 sm:pb-3 ${
-                isDraggingFiles ? 'ring-2 ring-[var(--tx)]/20 border-[var(--tx)]' : ''
+              className={`composer-3d relative rounded-3xl px-3.5 pt-3 pb-2.5 sm:px-4.5 sm:pt-4 sm:pb-3 ${
+                isDraggingFiles ? 'ring-2 ring-[var(--editorial-accent)]/35 border-[var(--editorial-accent)]' : ''
               }`}
             >
               <input
@@ -3018,7 +3211,7 @@ export function ChatWorkspace({
                         onClick={() => setImageAspectRatio(ratio)}
                         className={`px-1.5 py-0.5 text-[11px] font-mono transition-colors cursor-pointer border-b ${
                           imageAspectRatio === ratio
-                            ? 'text-[var(--tx)] border-[var(--tx)] font-semibold'
+                            ? 'text-[var(--tx)] border-[var(--editorial-accent)] font-semibold'
                             : 'text-[var(--mut)] border-transparent hover:text-[var(--tx)]'
                         }`}
                       >
@@ -3201,13 +3394,13 @@ export function ChatWorkspace({
                 className="w-full bg-transparent border-0 outline-none focus:outline-none focus-visible:outline-none appearance-none resize-none px-1 pb-2 text-base sm:text-sm leading-relaxed text-[var(--tx)] placeholder:text-[var(--mut)] max-h-40 sm:max-h-44 min-h-[42px] sm:min-h-[38px]"
               />
 
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--bd)]/65 mt-1">
-                <div className="flex items-center gap-1 min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-2 border-t border-[var(--bd)]/65 mt-1">
+                <div className="flex items-center gap-0.5 sm:gap-1 min-w-0 flex-1">
                   {/* Attach File */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-9.5 h-9.5 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
+                    className="w-8 h-8 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
                     title={cText.attachFileTitle}
                     aria-label={cText.attachFileTitle}
                   >
@@ -3218,7 +3411,7 @@ export function ChatWorkspace({
                   <button
                     type="button"
                     onClick={() => openConnectors('gmail')}
-                    className="relative w-9.5 h-9.5 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
+                    className="relative w-8 h-8 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer shrink-0"
                     title={cText.connectors.openButtonTitle}
                     aria-label={cText.connectors.openButtonTitle}
                   >
@@ -3235,7 +3428,7 @@ export function ChatWorkspace({
                       setImageMode((prev) => !prev);
                       textareaRef.current?.focus();
                     }}
-                    className={`w-9.5 h-9.5 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    className={`w-8 h-8 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-lg transition-colors cursor-pointer shrink-0 ${
                       imageMode
                         ? 'bg-[var(--ac)] text-[var(--on)]'
                         : 'text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]'
@@ -3248,18 +3441,18 @@ export function ChatWorkspace({
                   </button>
 
                   {/* Model Selector inside Typing Bar */}
-                  <div ref={modelMenuRef} className="relative min-w-0 max-w-full ml-1">
+                  <div ref={modelMenuRef} className="relative min-w-0 max-w-full ml-0.5 sm:ml-1">
                     <button
                       type="button"
                       onClick={() => setModelMenuOpen((prev) => !prev)}
                       aria-expanded={modelMenuOpen}
                       aria-haspopup="listbox"
-                      className="btn-3d-soft flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 min-h-[34px] max-w-full rounded-lg text-xs font-medium cursor-pointer"
+                      className="btn-3d-soft flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 min-h-[32px] sm:min-h-[34px] max-w-full rounded-lg text-xs font-medium cursor-pointer"
                       title={cText.selectModelTitle}
                     >
-                      <ModelLogo modelId={selectedModel} className="w-[19px] h-[19px] shrink-0" />
+                      <ModelLogo modelId={selectedModel} className="w-[18px] h-[18px] sm:w-[19px] sm:h-[19px] shrink-0" />
                       <span className="hidden sm:inline truncate">{activeModel.name}</span>
-                      <span className="sm:hidden truncate">{activeModel.shortName}</span>
+                      <span className="sm:hidden truncate max-w-[104px]">{activeModel.shortName}</span>
                       <ChevronUp
                         className={`w-3.5 h-3.5 text-[var(--mut)] shrink-0 transition-transform duration-200 ${
                           modelMenuOpen ? 'rotate-180' : ''
@@ -3313,7 +3506,7 @@ export function ChatWorkspace({
                                   </p>
                                 </div>
                                 {isSelected && (
-                                  <Check className="w-4 h-4 text-[var(--tx)] shrink-0 mt-0.5" />
+                                  <Check className="w-4 h-4 text-[var(--editorial-accent)] shrink-0 mt-0.5" />
                                 )}
                               </button>
                             );
@@ -3367,7 +3560,7 @@ export function ChatWorkspace({
                                         </p>
                                       </div>
                                       {isSelected && (
-                                        <Check className="w-4 h-4 text-[var(--tx)] shrink-0 mt-0.5" />
+                                        <Check className="w-4 h-4 text-[var(--editorial-accent)] shrink-0 mt-0.5" />
                                       )}
                                     </button>
                                   );
@@ -3380,7 +3573,7 @@ export function ChatWorkspace({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                   {voice.isSupported && !isStreaming && (
                     <button
                       type="button"
@@ -3404,7 +3597,7 @@ export function ChatWorkspace({
                             ? cText.voice.transcribingLabel
                             : cText.voice.startTitle
                       }
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                         voice.isRecording
                           ? 'bg-red-500/15 text-red-600 dark:text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/25'
                           : 'text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]'
@@ -3432,7 +3625,7 @@ export function ChatWorkspace({
                       }}
                       aria-label={cText.voiceChat.openTitle}
                       title={cText.voiceChat.openTitle}
-                      className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]"
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)]"
                     >
                       <AudioLines className="w-4 h-4" />
                     </button>
@@ -3442,7 +3635,7 @@ export function ChatWorkspace({
                     <button
                       type="button"
                       onClick={handleStopStreaming}
-                      className="w-9 h-9 rounded-full bg-[var(--tx)] text-[var(--bg)] hover:opacity-85 flex items-center justify-center shrink-0 transition-opacity cursor-pointer"
+                      className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full bg-[var(--tx)] text-[var(--bg)] hover:opacity-85 flex items-center justify-center shrink-0 transition-opacity cursor-pointer"
                       title={cText.stopTitle}
                     >
                       <Square className="w-3.5 h-3.5 fill-current" />
@@ -3456,7 +3649,7 @@ export function ChatWorkspace({
                         voice.isTranscribing ||
                         (!inputMessage.trim() && attachedImages.length === 0)
                       }
-                      className="btn-3d-primary w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                      className="btn-3d-primary w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
                       title={cText.sendTitle}
                     >
                       <ArrowUp className="w-4 h-4 stroke-[2.2]" />
@@ -3518,7 +3711,7 @@ export function ChatWorkspace({
       )}
 
       {workspaceToast && (
-        <div className="fixed top-4 right-4 z-[65] max-w-xs px-4 py-3 rounded-2xl bg-[var(--card)] border border-[var(--bd)] shadow-xl text-xs font-medium text-[var(--tx)] flex items-center gap-2">
+        <div className="surface-3d-elevated fixed top-4 right-4 z-[65] max-w-xs px-4 py-3 rounded-2xl text-xs font-medium text-[var(--tx)] flex items-center gap-2">
           <ConnectorsIcon className="w-4 h-4 shrink-0 text-emerald-500" />
           <span>{workspaceToast}</span>
         </div>
@@ -3593,7 +3786,7 @@ export function ChatWorkspace({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <h3 className="font-serif-fraunces text-lg font-semibold">
+                  <h3 className="font-display text-lg font-semibold">
                     {pendingWorkspaceMutation.mutation.title}
                   </h3>
                   <p className="text-xs text-[var(--mut)] leading-relaxed">

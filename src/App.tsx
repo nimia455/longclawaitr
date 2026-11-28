@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import { WifiOff, Wifi } from 'lucide-react';
@@ -26,10 +26,10 @@ import { Language, TRANSLATIONS, getInitialLanguage } from './lib/i18n';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [loginGateActive, setLoginGateActive] = useState(false);
-  const [chatsReadyForUid, setChatsReadyForUid] = useState<string | null>(null);
-  const verifiedUidRef = useRef<string | null>(null);
-  const authCelebrationPendingRef = useRef(false);
+  const authFlowPendingRef = useRef(false);
+  const handleAuthFlowPendingChange = useCallback((pending: boolean) => {
+    authFlowPendingRef.current = pending;
+  }, []);
 
   // App view: 'landing' or 'chat'
   const [view, setView] = useState<'landing' | 'chat'>('landing');
@@ -38,7 +38,15 @@ export default function App() {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const chatsRef = useRef<ChatSession[]>([]);
   chatsRef.current = chats;
-  const pendingLocalChatsRef = useRef<Map<string, ChatSession>>(new Map());
+  const getChatSyncSignature = (chat: ChatSession): string => {
+    const msgs = chat.messages || [];
+    const last = msgs[msgs.length - 1];
+    return `${chat.title || ''}|${chat.pin ? 1 : 0}|${msgs.length}|${last?.id || ''}|${last?.content?.length || 0}`;
+  };
+  const pendingLocalChatsRef = useRef<
+    Map<string, { chat: ChatSession; updatedAt: number; signature: string }>
+  >(new Map());
+  const deletedChatIdsRef = useRef<Set<string>>(new Set());
   const unpersistedChatIdsRef = useRef<Set<string>>(new Set());
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
@@ -67,7 +75,7 @@ export default function App() {
   const [lang, setLang] = useState<Language>(getInitialLanguage);
   const t = TRANSLATIONS[lang];
 
-  // Font preference state ('auto' automatically applies Turkish-optimized DM Sans + Source Serif 4 in TR)
+  // Font preference state ('auto' applies Plus Jakarta Sans + Source Serif 4 editorial typography)
   const [fontPref, setFontPref] = useState<FontPreference>(() => {
     try {
       const saved = localStorage.getItem('lc_font');
@@ -118,6 +126,15 @@ export default function App() {
 
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', description);
+
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+    const twTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twTitle) twTitle.setAttribute('content', title);
+    const twDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twDesc) twDesc.setAttribute('content', description);
 
     if (typeof window !== 'undefined') {
       const canonicalHref = `${window.location.origin}${window.location.pathname}`;
@@ -190,31 +207,42 @@ export default function App() {
     }
   };
 
-  // Firebase Auth listener
+  // Firebase Auth listener with safety fallback so cold boot can never stall indefinitely
   useEffect(() => {
+    let resolved = false;
+    const bootFallbackTimer = window.setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setAuthLoading(false);
+      }
+    }, 2500);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      resolved = true;
+      window.clearTimeout(bootFallbackTimer);
       setUser(currentUser);
       setAuthLoading(false);
+
       if (currentUser) {
-        // Keep AuthModal open while the account-created tick animation plays
-        if (authCelebrationPendingRef.current) {
-          verifiedUidRef.current = currentUser.uid;
+        // Non-blocking, deduplicated background profile sync
+        void syncUserProfile(currentUser).catch(() => {});
+
+        // Let AuthModal complete its active sign-in/sign-up handoff without racing
+        if (authFlowPendingRef.current) {
           return;
         }
         setAuthModalOpen(false);
         setInitialResetCode(null);
-        if (verifiedUidRef.current !== currentUser.uid) {
-          setLoginGateActive(true);
-        }
         setView('chat');
       } else {
-        authCelebrationPendingRef.current = false;
-        verifiedUidRef.current = null;
-        setChatsReadyForUid(null);
-        setLoginGateActive(false);
+        authFlowPendingRef.current = false;
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      window.clearTimeout(bootFallbackTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Handle Firebase Email Action Links (?mode=verifyEmail&oobCode=... or ?mode=resetPassword&oobCode=...)
@@ -252,6 +280,7 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       pendingLocalChatsRef.current.clear();
+      deletedChatIdsRef.current.clear();
       unpersistedChatIdsRef.current.clear();
       // Guest mode: load from localStorage if exists (keep composer ready on fresh welcome screen)
       try {
@@ -271,44 +300,86 @@ export default function App() {
     }
 
     // Subscribe to Firestore /users/{uid}/chats
-    setChatsReadyForUid(null);
     const unsubscribe = subscribeToUserChats(
       user.uid,
       (fetchedChats) => {
         if (fetchedChats.length === 0) {
-          // If user has no chats yet, check if there are guest chats to migrate
+          // If user has no chats yet, migrate any guest chats seamlessly without stalling state
           const local = localStorage.getItem('lc_guest_chats');
           if (local) {
             try {
               const parsed: ChatSession[] = JSON.parse(local);
               if (Array.isArray(parsed) && parsed.length > 0) {
-                parsed.forEach((c) => {
-                  void saveChatSession(user.uid, { ...c, userId: user.uid }, true).catch(() => {});
+                const migrated: ChatSession[] = parsed.map((c, idx) => {
+                  const safeId =
+                    typeof c.id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(c.id)
+                      ? c.id
+                      : `chat-${Date.now()}-${idx}`;
+                  return {
+                    ...c,
+                    id: safeId,
+                    userId: user.uid,
+                    mode: c.mode === 'sum' || c.mode === 'write' ? c.mode : 'chat',
+                    depth: c.depth === 'fast' || c.depth === 'deep' ? c.depth : 'mid',
+                    messages: Array.isArray(c.messages) ? c.messages : [],
+                  };
+                });
+                const nowTs = Date.now();
+                migrated.forEach((c) => {
+                  pendingLocalChatsRef.current.set(c.id, {
+                    chat: c,
+                    updatedAt: nowTs,
+                    signature: getChatSyncSignature(c),
+                  });
+                  void saveChatSession(user.uid, c, true).catch(() => {});
                 });
                 localStorage.removeItem('lc_guest_chats');
+                chatsRef.current = migrated;
+                setChats(migrated);
                 return;
               }
             } catch {}
           }
         }
 
-        // Preserve any locally created/updated chats that haven't echoed back from Firestore yet
-        const fetchedById = new Map(fetchedChats.map((c) => [c.id, c]));
+        // Filter out chats explicitly deleted locally until Firestore confirms deletion
+        const remoteIdSet = new Set(fetchedChats.map((c) => c.id));
+        for (const deletedId of Array.from(deletedChatIdsRef.current)) {
+          if (!remoteIdSet.has(deletedId)) {
+            deletedChatIdsRef.current.delete(deletedId);
+          }
+        }
+        const activeFetchedChats = fetchedChats.filter(
+          (c) => !deletedChatIdsRef.current.has(c.id)
+        );
+
+        // Preserve any locally created/updated chats (including renames, pins, regenerations)
+        // until Firestore echoes back the matching state or the local grace window expires.
+        const now = Date.now();
+        const fetchedById = new Map(activeFetchedChats.map((c) => [c.id, c]));
         const merged: ChatSession[] = [];
 
-        for (const [pendingId, pendingChat] of pendingLocalChatsRef.current.entries()) {
+        for (const [pendingId, pending] of pendingLocalChatsRef.current.entries()) {
+          if (deletedChatIdsRef.current.has(pendingId)) {
+            pendingLocalChatsRef.current.delete(pendingId);
+            continue;
+          }
           const remote = fetchedById.get(pendingId);
           if (!remote) {
-            merged.push(pendingChat);
-          } else if ((remote.messages?.length || 0) < (pendingChat.messages?.length || 0)) {
-            merged.push({ ...remote, ...pendingChat });
-            fetchedById.delete(pendingId);
+            merged.push(pending.chat);
           } else {
-            pendingLocalChatsRef.current.delete(pendingId);
+            const remoteSig = getChatSyncSignature(remote);
+            const expired = now - pending.updatedAt > 12_000;
+            if (remoteSig === pending.signature || expired) {
+              pendingLocalChatsRef.current.delete(pendingId);
+            } else {
+              merged.push({ ...remote, ...pending.chat });
+              fetchedById.delete(pendingId);
+            }
           }
         }
 
-        for (const remoteChat of fetchedChats) {
+        for (const remoteChat of activeFetchedChats) {
           if (fetchedById.has(remoteChat.id)) {
             merged.push(remoteChat);
           }
@@ -319,11 +390,9 @@ export default function App() {
         setCurrentChatId((prev) =>
           prev && merged.some((c) => c.id === prev) ? prev : null
         );
-        setChatsReadyForUid(user.uid);
       },
       (error) => {
         console.warn('Firestore subscription notice:', error);
-        setChatsReadyForUid(user.uid);
       }
     );
 
@@ -350,7 +419,11 @@ export default function App() {
     setMobileMenuOpen(false);
 
     if (user) {
-      pendingLocalChatsRef.current.set(newChat.id, newChat);
+      pendingLocalChatsRef.current.set(newChat.id, {
+        chat: newChat,
+        updatedAt: Date.now(),
+        signature: getChatSyncSignature(newChat),
+      });
       unpersistedChatIdsRef.current.add(newChat.id);
     } else {
       try {
@@ -369,7 +442,9 @@ export default function App() {
   };
 
   const handleDeleteChat = async (id: string) => {
+    deletedChatIdsRef.current.add(id);
     pendingLocalChatsRef.current.delete(id);
+    unpersistedChatIdsRef.current.delete(id);
     const remaining = chatsRef.current.filter((c) => c.id !== id);
     chatsRef.current = remaining;
     setChats(remaining);
@@ -392,6 +467,7 @@ export default function App() {
   };
 
   const handleTogglePinChat = async (id: string) => {
+    if (deletedChatIdsRef.current.has(id)) return;
     const target = chatsRef.current.find((c) => c.id === id);
     if (!target) return;
     const updatedChat: ChatSession = { ...target, pin: !target.pin };
@@ -401,7 +477,11 @@ export default function App() {
     setChats(updated);
 
     if (user) {
-      pendingLocalChatsRef.current.set(id, updatedChat);
+      pendingLocalChatsRef.current.set(id, {
+        chat: updatedChat,
+        updatedAt: Date.now(),
+        signature: getChatSyncSignature(updatedChat),
+      });
       try {
         await saveChatSession(user.uid, updatedChat, false);
       } catch (err) {
@@ -415,6 +495,7 @@ export default function App() {
   };
 
   const handleRenameChat = async (id: string, newTitle: string) => {
+    if (deletedChatIdsRef.current.has(id)) return;
     const target = chatsRef.current.find((c) => c.id === id);
     if (!target || !newTitle.trim()) return;
     const updatedChat: ChatSession = { ...target, title: newTitle.trim() };
@@ -424,7 +505,11 @@ export default function App() {
     setChats(updated);
 
     if (user) {
-      pendingLocalChatsRef.current.set(id, updatedChat);
+      pendingLocalChatsRef.current.set(id, {
+        chat: updatedChat,
+        updatedAt: Date.now(),
+        signature: getChatSyncSignature(updatedChat),
+      });
       try {
         await saveChatSession(user.uid, updatedChat, false);
       } catch (err) {
@@ -442,6 +527,7 @@ export default function App() {
     messages: ChatMessage[],
     newTitle?: string
   ) => {
+    if (deletedChatIdsRef.current.has(chatId)) return;
     const existing = chatsRef.current.find((c) => c.id === chatId);
     const isNewRecord = !existing || unpersistedChatIdsRef.current.has(chatId);
     unpersistedChatIdsRef.current.delete(chatId);
@@ -475,7 +561,11 @@ export default function App() {
       return;
     }
 
-    pendingLocalChatsRef.current.set(chatId, updatedChat);
+    pendingLocalChatsRef.current.set(chatId, {
+      chat: updatedChat,
+      updatedAt: Date.now(),
+      signature: getChatSyncSignature(updatedChat),
+    });
     try {
       await saveChatSession(user.uid, updatedChat, isNewRecord);
     } catch (err) {
@@ -511,11 +601,15 @@ export default function App() {
   };
 
   const handleOpenAuth = (tab: 'in' | 'up') => {
+    if (user) {
+      setView('chat');
+      return;
+    }
     setAuthModalTab(tab);
     setAuthModalOpen(true);
   };
 
-  const showLoginLoadingScreen = authLoading || (Boolean(user) && loginGateActive);
+  const showLoginLoadingScreen = authLoading;
   const anyModalOpen = authModalOpen || legalModalType !== null || showLoginLoadingScreen;
 
   useKeyboardShortcuts([
@@ -558,8 +652,14 @@ export default function App() {
         if (legalModalType !== null) {
           setLegalModalType(null);
         } else if (authModalOpen) {
+          const wasPending = authFlowPendingRef.current;
+          authFlowPendingRef.current = false;
           setAuthModalOpen(false);
           setInitialResetCode(null);
+          if (wasPending && auth.currentUser) {
+            setUser(auth.currentUser);
+            setView('chat');
+          }
         }
       },
     },
@@ -577,11 +677,11 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2, ease: LIQUID_EASE }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[85] inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--card)] border border-[var(--bd)] shadow-xl text-xs font-medium text-[var(--tx)]"
+            className="surface-3d-elevated fixed top-4 left-1/2 -translate-x-1/2 z-[85] inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-medium text-[var(--tx)]"
           >
             {networkState === 'offline' ? (
               <>
-                <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <WifiOff className="w-3.5 h-3.5 text-[var(--tx)] shrink-0" />
                 <span>
                   {lang === 'tr'
                     ? 'İnternet bağlantısı kesildi. Çevrimdışısın.'
@@ -606,7 +706,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2, ease: LIQUID_EASE }}
-            className="fixed top-4 right-4 z-[80] px-4 py-3 rounded-2xl bg-[var(--card)] border border-[var(--bd)] shadow-xl text-xs font-medium text-[var(--tx)]"
+            className="surface-3d-elevated fixed top-4 right-4 z-[80] px-4 py-3 rounded-2xl text-xs font-medium text-[var(--tx)]"
           >
             {actionBanner}
           </motion.div>
@@ -614,23 +714,7 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showLoginLoadingScreen && (
-          <LoginLoadingScreen
-            theme={theme}
-            lang={lang}
-            authResolving={authLoading}
-            user={user}
-            chatsReady={Boolean(user && chatsReadyForUid === user.uid)}
-            onComplete={() => {
-              if (user) {
-                verifiedUidRef.current = user.uid;
-              }
-              setLoginGateActive(false);
-              setView('chat');
-            }}
-            onSignOut={handleSignOut}
-          />
-        )}
+        {showLoginLoadingScreen && <LoginLoadingScreen lang={lang} />}
       </AnimatePresence>
 
       {!authLoading && view === 'landing' ? (
@@ -684,22 +768,25 @@ export default function App() {
         initialTab={authModalTab}
         initialResetCode={initialResetCode}
         lang={lang}
-        onAuthFlowPendingChange={(pending) => {
-          authCelebrationPendingRef.current = pending;
-        }}
+        onAuthFlowPendingChange={handleAuthFlowPendingChange}
         onClose={() => {
-          authCelebrationPendingRef.current = false;
+          const wasPending = authFlowPendingRef.current;
+          authFlowPendingRef.current = false;
           setAuthModalOpen(false);
           setInitialResetCode(null);
+          if (wasPending && auth.currentUser) {
+            setUser(auth.currentUser);
+            setView('chat');
+          }
         }}
         onSuccess={() => {
-          authCelebrationPendingRef.current = false;
+          authFlowPendingRef.current = false;
           setAuthModalOpen(false);
           setInitialResetCode(null);
           if (auth.currentUser) {
-            verifiedUidRef.current = auth.currentUser.uid;
+            setUser(auth.currentUser);
+            void syncUserProfile(auth.currentUser).catch(() => {});
           }
-          setLoginGateActive(false);
           setView('chat');
         }}
         onOpenLegal={(type) => setLegalModalType(type)}

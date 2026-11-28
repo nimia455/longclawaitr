@@ -43,13 +43,17 @@ const firestoreDatabaseId = (firebaseConfig as { firestoreDatabaseId?: string })
 
 function createFirestoreInstance(): Firestore {
   try {
-    return initializeFirestore(
-      app,
-      {
-        experimentalAutoDetectLongPolling: true,
-      },
-      firestoreDatabaseId
-    );
+    return firestoreDatabaseId
+      ? initializeFirestore(
+          app,
+          {
+            experimentalAutoDetectLongPolling: true,
+          },
+          firestoreDatabaseId
+        )
+      : initializeFirestore(app, {
+          experimentalAutoDetectLongPolling: true,
+        });
   } catch {
     // Already initialized (e.g., module hot reload) — reuse existing instance
     return firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
@@ -312,16 +316,19 @@ export async function saveChatSession(userId: string, chat: ChatSession, isNew =
     try {
       await updateDoc(docRef, baseFields);
     } catch (updateErr: any) {
-      if (updateErr?.code === 'not-found') {
-        await setDoc(docRef, {
-          id: chat.id,
-          userId,
-          ...baseFields,
-          createdAt: serverTimestamp(),
-        });
-      } else {
-        throw updateErr;
+      if (updateErr?.code === 'not-found' || updateErr?.code === 'permission-denied') {
+        const snap = await getDoc(docRef).catch(() => null);
+        if (!snap || !snap.exists()) {
+          await setDoc(docRef, {
+            id: chat.id,
+            userId,
+            ...baseFields,
+            createdAt: serverTimestamp(),
+          });
+          return;
+        }
       }
+      throw updateErr;
     }
   } catch (error) {
     handleFirestoreError(error, isNew ? OperationType.CREATE : OperationType.UPDATE, path);
@@ -418,16 +425,19 @@ export async function saveUserCommand(
     try {
       await updateDoc(docRef, mutableFields);
     } catch (updateErr: any) {
-      if (updateErr?.code === 'not-found') {
-        await setDoc(docRef, {
-          id: safeId,
-          userId,
-          ...mutableFields,
-          createdAt: serverTimestamp(),
-        });
-      } else {
-        throw updateErr;
+      if (updateErr?.code === 'not-found' || updateErr?.code === 'permission-denied') {
+        const snap = await getDoc(docRef).catch(() => null);
+        if (!snap || !snap.exists()) {
+          await setDoc(docRef, {
+            id: safeId,
+            userId,
+            ...mutableFields,
+            createdAt: serverTimestamp(),
+          });
+          return;
+        }
       }
+      throw updateErr;
     }
   } catch (error) {
     handleFirestoreError(error, isNew ? OperationType.CREATE : OperationType.UPDATE, path);
@@ -444,44 +454,79 @@ export async function deleteUserCommand(userId: string, commandId: string) {
   }
 }
 
+const pendingProfileSyncs = new Map<string, Promise<void>>();
+const lastSyncedProfileFingerprints = new Map<string, string>();
+
 export async function syncUserProfile(user: User) {
   const path = `users/${user.uid}`;
-  try {
-    const userRef = doc(db, 'users', user.uid);
-    const displayName = (
-      user.displayName ||
-      user.email?.split('@')[0] ||
-      'Kullanıcı'
-    ).slice(0, 100);
+  const displayName = (
+    user.displayName ||
+    user.email?.split('@')[0] ||
+    'Kullanıcı'
+  ).slice(0, 100);
+  const email = (user.email || '').slice(0, 256);
+  const photoURL = (user.photoURL || '').slice(0, 1000);
+  const emailVerified = !!user.emailVerified;
 
-    const mutableFields = {
-      email: (user.email || '').slice(0, 256),
-      displayName,
-      photoURL: (user.photoURL || '').slice(0, 1000),
-      emailVerified: !!user.emailVerified,
-      updatedAt: serverTimestamp(),
-    };
-
-    try {
-      await updateDoc(userRef, mutableFields);
-    } catch (updateErr: any) {
-      if (updateErr?.code === 'not-found') {
-        await setDoc(userRef, {
-          id: user.uid,
-          ...mutableFields,
-          createdAt: serverTimestamp(),
-        });
-      } else {
-        throw updateErr;
-      }
-    }
-  } catch (error) {
-    if (isTransientOfflineError(error)) {
-      console.warn('Skipped user profile sync while Firestore is offline.');
-      return;
-    }
-    handleFirestoreError(error, OperationType.WRITE, path);
+  const fingerprint = `${user.uid}|${displayName}|${email}|${photoURL}|${emailVerified ? 1 : 0}`;
+  if (lastSyncedProfileFingerprints.get(user.uid) === fingerprint) {
+    return;
   }
+
+  const inFlight = pendingProfileSyncs.get(user.uid);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const run = (async () => {
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const mutableFields = {
+        email,
+        displayName,
+        photoURL,
+        emailVerified,
+        updatedAt: serverTimestamp(),
+      };
+
+      // Check existence first: calling updateDoc on a non-existent doc triggers
+      // PERMISSION_DENIED (not 'not-found') under strict Firestore security rules.
+      const existingSnap = await getDoc(userRef);
+      const existingData = existingSnap.exists() ? existingSnap.data() : null;
+
+      if (!existingSnap.exists() || !existingData?.createdAt || existingData?.id !== user.uid) {
+        try {
+          await setDoc(userRef, {
+            id: user.uid,
+            ...mutableFields,
+            createdAt: serverTimestamp(),
+          });
+        } catch (setErr: any) {
+          // If another tab created the profile concurrently, fall back to updateDoc
+          if (setErr?.code === 'permission-denied') {
+            await updateDoc(userRef, mutableFields);
+          } else {
+            throw setErr;
+          }
+        }
+      } else {
+        await updateDoc(userRef, mutableFields);
+      }
+
+      lastSyncedProfileFingerprints.set(user.uid, fingerprint);
+    } catch (error) {
+      if (isTransientOfflineError(error)) {
+        console.warn('Skipped user profile sync while Firestore is offline.');
+        return;
+      }
+      handleFirestoreError(error, OperationType.WRITE, path);
+    } finally {
+      pendingProfileSyncs.delete(user.uid);
+    }
+  })();
+
+  pendingProfileSyncs.set(user.uid, run);
+  return run;
 }
 
 export async function deleteUserProfileAndCommands(userId: string) {

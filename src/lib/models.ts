@@ -1,4 +1,5 @@
 export type ChatModelId =
+  | 'longclaw-ultracode-1'
   | 'longclaw-clawing-1.2-ultra'
   | 'longclaw-clawing-1.2-pro'
   | 'longclaw-clawing-1.1-ultra'
@@ -19,6 +20,15 @@ export interface ChatModelOption {
 export const DEFAULT_CHAT_MODEL: ChatModelId = 'longclaw-clawing-1.2-pro';
 
 export const CHAT_MODELS: ChatModelOption[] = [
+  {
+    id: 'longclaw-ultracode-1',
+    name: 'LongClaw UltraCode 1',
+    shortName: 'UltraCode 1',
+    tagline: 'Saf Kodlama',
+    description:
+      'Yalnızca yazılım mühendisliği, hata ayıklama, algoritma ve üretime hazır kod için özel olarak geliştirildi.',
+    inFamily: true,
+  },
   {
     id: 'longclaw-clawing-1.2-ultra',
     name: 'Longclaw Clawing 1.2 Ultra',
@@ -85,5 +95,9 @@ export function isValidChatModel(value: unknown): value is ChatModelId {
 }
 
 export function getChatModelOption(id: ChatModelId): ChatModelOption {
-  return CHAT_MODELS.find((m) => m.id === id) || CHAT_MODELS[1];
+  return (
+    CHAT_MODELS.find((m) => m.id === id) ||
+    CHAT_MODELS.find((m) => m.id === DEFAULT_CHAT_MODEL) ||
+    CHAT_MODELS[0]
+  );
 }

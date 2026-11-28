@@ -334,13 +334,13 @@ export function SettingsModal({
             <div className="px-5 sm:px-6 pt-5 pb-0 border-b border-[var(--bd)] shrink-0">
               <div className="flex items-center justify-between gap-3 pb-4">
                 <div>
-                  <h2 className="font-serif-fraunces text-xl font-medium tracking-tight">
+                  <h2 className="font-display text-2xl font-medium tracking-tight">
                     {isTr ? 'Ayarlar' : 'Settings'}
                   </h2>
                   <p className="text-xs text-[var(--mut)] mt-0.5">
                     {isTr
-                      ? 'Profilini, Longclaw logosunu, komutlarını ve çalışma alanını düzenle.'
-                      : 'Customize your profile, Longclaw logo, /commands, and workspace.'}
+                      ? 'Profilini, /komutlarını, görünümü ve çalışma alanını düzenle.'
+                      : 'Customize your profile, /commands, typography, and workspace.'}
                   </p>
                 </div>
                 <button
@@ -377,7 +377,7 @@ export function SettingsModal({
                       <span>{tab.label}</span>
                       <span
                         aria-hidden="true"
-                        className={`absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[var(--ac)] origin-center transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        className={`absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[var(--editorial-accent)] origin-center transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                           active ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0'
                         }`}
                       />
@@ -826,7 +826,7 @@ export function SettingsModal({
                       </button>
                     </div>
 
-                    {/* Typography / Turkish Font Selector */}
+                    {/* Typography Selector */}
                     <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">
@@ -834,26 +834,26 @@ export function SettingsModal({
                         </p>
                         <p className="text-xs text-[var(--mut)] mt-0.5">
                           {isTr
-                            ? 'Türkçe karakterlere (ğ, ş, ı, İ) tam uyumlu yazı tipleri'
-                            : 'Switch between auto language-matched, Turkish-tuned DM Sans, Jakarta, or Serif'}
+                            ? 'Editoryal Serif + Sans, yalın Sans veya tam Serif (Türkçe tam uyumlu)'
+                            : 'Editorial Serif + Sans (Auto), clean Jakarta Sans, or full Source Serif'}
                         </p>
                       </div>
                       <div className="segmented-track-3d inline-flex items-center gap-1 p-1 rounded-full shrink-0 self-start sm:self-auto">
                         {(
                           [
                             { id: 'auto', label: isTr ? 'Otomatik' : 'Auto' },
-                            { id: 'tr-sans', label: 'DM Sans' },
-                            { id: 'jakarta', label: 'Jakarta' },
+                            { id: 'jakarta', label: 'Sans' },
                             { id: 'serif', label: 'Serif' },
                           ] as const
                         ).map((opt) => {
-                          const active = fontPref === opt.id;
+                          const normalizedPref = fontPref === 'tr-sans' ? 'jakarta' : fontPref;
+                          const active = normalizedPref === opt.id;
                           return (
                             <button
                               key={opt.id}
                               type="button"
                               onClick={() => onChangeFontPref(opt.id)}
-                              className={`px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer whitespace-nowrap ${
+                              className={`px-3 py-1 rounded-full text-xs transition-colors cursor-pointer whitespace-nowrap ${
                                 active
                                   ? 'segmented-thumb-3d text-[var(--tx)] font-semibold'
                                   : 'text-[var(--mut)] hover:text-[var(--tx)] font-medium'

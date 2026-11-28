@@ -429,6 +429,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       emailVerifyErrorBanner: 'E-posta doğrulama bağlantısı geçersiz veya süresi dolmuş.',
     },
     models: {
+      'longclaw-ultracode-1': {
+        tagline: 'Saf Kodlama',
+        description:
+          'Tamamen kodlama için geliştirildi: mimari, algoritma, hata ayıklama ve doğrudan çalışır üretim kodu.',
+      },
       'longclaw-clawing-1.2-ultra': {
         tagline: 'Derin Analiz',
         description: 'Zor problemler, araştırma ve çok adımlı mantık için en güçlü model.',
@@ -762,7 +767,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
         invalidCredential: 'E-posta ya da şifre eşleşmedi.',
         userNotFound: 'Bu e-posta ile kayıtlı bir hesap bulamadık.',
         operationNotAllowed:
-          'E-posta ile giriş şu an kapalı görünüyor.',
+          'E-posta ve şifre ile kayıt şu an Firebase Console üzerinde kapalı (Authentication → Sign-in method → Email/Password bölümünden açılabilir). Şimdilik Google ile devam edebilirsin.',
         genericAuth: 'Bir şeyler ters gitti, lütfen tekrar dene.',
         invalidEmailReset:
           'Sıfırlama bağlantısı için geçerli bir e-posta adresi yaz.',
@@ -1128,6 +1133,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       emailVerifyErrorBanner: 'The email verification link is invalid or has expired.',
     },
     models: {
+      'longclaw-ultracode-1': {
+        tagline: 'Built for Coding',
+        description:
+          'Built completely for coding: architecture, algorithms, root-cause debugging, and production-ready code.',
+      },
       'longclaw-clawing-1.2-ultra': {
         tagline: 'Deep Reasoning',
         description: 'Our strongest model for hard problems, research, and complex logic.',
@@ -1460,7 +1470,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
         invalidCredential: 'Email or password didn’t match.',
         userNotFound: 'We couldn’t find an account with that email.',
         operationNotAllowed:
-          'Email sign-in isn’t enabled right now.',
+          'Email & password sign-up isn’t enabled in Firebase yet (enable it under Authentication → Sign-in method → Email/Password in Firebase Console). You can continue with Google in the meantime.',
         genericAuth: 'Something went wrong—please try again.',
         invalidEmailReset:
           'Enter a valid email address so we know where to send the reset link.',

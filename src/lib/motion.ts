@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 /**
  * Natural human-crafted editorial motion physics.
  * Quiet, critically-damped deceleration and subtle tactile weight —
@@ -80,3 +82,29 @@ export const EDITORIAL_VIEWPORT = {
   once: true,
   amount: 0.2,
 } as const;
+
+/**
+ * Detects touch / mobile viewports so scroll-linked parallax and mouse-only
+ * pointer effects stay off on mobile for locked 60/120fps scrolling.
+ */
+export function useIsCoarsePointer(): boolean {
+  const [isCoarse, setIsCoarse] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(pointer: coarse), (max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse), (max-width: 767px)');
+    const update = () => setIsCoarse(mq.matches);
+    update();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+
+  return isCoarse;
+}

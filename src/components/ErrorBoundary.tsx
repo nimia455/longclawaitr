@@ -60,12 +60,12 @@ export class ErrorBoundary extends React.Component<
 
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--tx)] flex items-center justify-center p-6 font-sans antialiased">
-        <div className="w-full max-w-md rounded-3xl bg-[var(--card)] border border-[var(--bd)] p-7 sm:p-8 shadow-xl text-center">
+        <div className="surface-3d-elevated w-full max-w-md rounded-3xl p-7 sm:p-8 text-center">
           <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-[var(--surf)] border border-[var(--bd)] flex items-center justify-center">
             <LongclawLogo className="w-8 h-8 text-[var(--tx)]" />
           </div>
 
-          <h1 className="font-serif-fraunces text-2xl font-medium tracking-tight text-[var(--tx)] mb-2">
+          <h1 className="font-display text-2xl font-medium tracking-tight text-[var(--tx)] mb-2">
             {isTr ? 'Beklenmedik bir sorun oluştu' : 'Something unexpected happened'}
           </h1>
 
@@ -79,7 +79,7 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={this.handleRetry}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[var(--ac)] text-[var(--on)] text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+              className="btn-3d-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               <span>{isTr ? 'Tekrar dene' : 'Try again'}</span>
@@ -88,7 +88,7 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={this.handleReload}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[var(--surf)] border border-[var(--bd)] text-[var(--tx)] text-sm font-medium hover:bg-[var(--bg)] transition-colors cursor-pointer"
+              className="btn-3d-soft w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>{isTr ? 'Sayfayı yenile' : 'Reload page'}</span>

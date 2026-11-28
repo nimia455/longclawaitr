@@ -97,6 +97,7 @@ const BENCHMARKS: BenchmarkSpec[] = [
     maxScale: 100,
     note: 'Pass@1 · Zaman sızıntısı olmayan güncel problemler',
     entries: [
+      { model: 'LongClaw UltraCode 1', shortName: 'UltraCode 1', provider: 'Longclaw', value: 74.8, isLongclaw: true, isCore: true, modelId: 'longclaw-ultracode-1' },
       { model: 'Claude Sonnet 4', shortName: 'Claude Sonnet 4', provider: 'Anthropic', value: 66.8, isCore: true },
       { model: 'DeepSeek V4', shortName: 'DeepSeek V4', provider: 'DeepSeek', value: 66.3, isCore: true },
       { model: 'Longclaw Clawing 1.2 Ultra', shortName: 'Clawing 1.2 Ultra', provider: 'Longclaw', value: 66.1, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-ultra' },
@@ -120,6 +121,7 @@ const BENCHMARKS: BenchmarkSpec[] = [
     maxScale: 65,
     note: 'Agentless harness · 500 doğrulanmış GitHub görevi',
     entries: [
+      { model: 'LongClaw UltraCode 1', shortName: 'UltraCode 1', provider: 'Longclaw', value: 58.6, isLongclaw: true, isCore: true, modelId: 'longclaw-ultracode-1' },
       { model: 'Claude Sonnet 4', shortName: 'Claude Sonnet 4', provider: 'Anthropic', value: 51.4, isCore: true },
       { model: 'Longclaw Clawing 1.2 Ultra', shortName: 'Clawing 1.2 Ultra', provider: 'Longclaw', value: 48.3, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-ultra' },
       { model: 'Longclaw Clawing 1.2 Pro', shortName: 'Clawing 1.2 Pro', provider: 'Longclaw', value: 46.9, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-pro' },
@@ -189,6 +191,7 @@ const BENCHMARKS: BenchmarkSpec[] = [
     maxScale: 100,
     note: 'Strict Prompt Accuracy · Günlük iş akışları için kritik metrik',
     entries: [
+      { model: 'LongClaw UltraCode 1', shortName: 'UltraCode 1', provider: 'Longclaw', value: 91.4, isLongclaw: true, isCore: true, modelId: 'longclaw-ultracode-1' },
       { model: 'Longclaw Clawing 1.2 Ultra', shortName: 'Clawing 1.2 Ultra', provider: 'Longclaw', value: 90.6, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-ultra' },
       { model: 'Longclaw Clawing 1.2 Pro', shortName: 'Clawing 1.2 Pro', provider: 'Longclaw', value: 89.9, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-pro' },
       { model: 'Longclaw Clawing 1.1 Ultra', shortName: 'Clawing 1.1 Ultra', provider: 'Longclaw', value: 89.4, isLongclaw: true, modelId: 'longclaw-clawing-1.1-ultra' },
@@ -216,6 +219,7 @@ const BENCHMARKS: BenchmarkSpec[] = [
       { model: 'Longclaw Clawing 1.2 Pro', shortName: 'Clawing 1.2 Pro', provider: 'Longclaw', value: 148, isLongclaw: true, isCore: true, modelId: 'longclaw-clawing-1.2-pro' },
       { model: 'Gemini 3', shortName: 'Gemini 3', provider: 'Google', value: 132, isCore: true },
       { model: 'Longclaw Clawing 1.1', shortName: 'Clawing 1.1', provider: 'Longclaw', value: 126, isLongclaw: true, modelId: 'longclaw-clawing-1.1' },
+      { model: 'LongClaw UltraCode 1', shortName: 'UltraCode 1', provider: 'Longclaw', value: 118, isLongclaw: true, isCore: true, modelId: 'longclaw-ultracode-1' },
       { model: 'Longclaw Clawing 1.1 Pro', shortName: 'Clawing 1.1 Pro', provider: 'Longclaw', value: 88, isLongclaw: true, modelId: 'longclaw-clawing-1.1-pro' },
       { model: 'Claude Sonnet 4', shortName: 'Claude Sonnet 4', provider: 'Anthropic', value: 79, isCore: true },
       { model: 'Longclaw Clawing 1 Pro', shortName: 'Clawing 1 Pro', provider: 'Longclaw', value: 76, isLongclaw: true, modelId: 'longclaw-clawing-1-pro' },
@@ -245,6 +249,20 @@ interface SummaryRow {
 }
 
 const SUMMARY_ROWS: SummaryRow[] = [
+  {
+    model: 'LongClaw UltraCode 1',
+    shortName: 'UltraCode 1',
+    provider: 'Longclaw',
+    isLongclaw: true,
+    modelId: 'longclaw-ultracode-1',
+    trBench: 86.5,
+    mmluPro: 83.4,
+    liveCode: 74.8,
+    sweBench: 58.6,
+    math500: 91.6,
+    ifeval: 91.4,
+    speed: 118,
+  },
   {
     model: 'Longclaw Clawing 1.2 Ultra',
     shortName: 'Clawing 1.2 Ultra',
@@ -483,6 +501,16 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
 
   const highlights = [
     {
+      id: 'longclaw-ultracode-1' as ChatModelId,
+      name: 'UltraCode 1',
+      stat: '74.8%',
+      statLabel: 'LiveCodeBench #1 · 58.6% SWE',
+      desc:
+        lang === 'tr'
+          ? 'Tamamen kodlama için geliştirildi: algoritma, sistem mimarisi, kök neden hata ayıklama ve doğrudan çalışır üretim kodu.'
+          : 'Built completely for coding: leads LiveCodeBench and SWE-bench with strict types, edge-case rigor, and first-try runnable output.',
+    },
+    {
       id: 'longclaw-clawing-1.2-ultra' as ChatModelId,
       name: 'Clawing 1.2 Ultra',
       stat: '88.4%',
@@ -498,13 +526,6 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
         lang === 'tr'
           ? 'Güçlü kod ve akıl yürütme performansını 148 tok/s hızla birleştirir; gün boyu rahatça kullanılacak dengeli model.'
           : 'Keeps close to our top coding and reasoning marks while streaming at 148 tok/s—the balanced model most people leave on all day.',
-    },
-    {
-      id: 'longclaw-clawing-1.1-ultra' as ChatModelId,
-      name: 'Clawing 1.1 Ultra',
-      stat: '89.4%',
-      statLabel: 'IFEval',
-      desc: b.takeaways.ultra11,
     },
     {
       id: 'longclaw-clawing-1.1-low' as ChatModelId,
@@ -534,7 +555,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
               <p className="text-xs font-medium text-[var(--mut)] mb-2.5">
                 {b.eyebrow}
               </p>
-              <h1 className="font-serif-fraunces text-[2rem] sm:text-5xl font-medium tracking-[-0.025em] leading-[1.08] text-balance">
+              <h1 className="font-display text-[2rem] sm:text-5xl font-medium tracking-[-0.025em] leading-[1.08] text-balance">
                 {b.title}
               </h1>
               <p className="mt-3.5 sm:mt-4 text-[15px] sm:text-base text-[var(--mut)] leading-[1.7]">
@@ -590,7 +611,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
                     onClick={() => handleCategoryChange(tabId)}
                     className={`relative pb-3.5 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                       active
-                        ? 'text-[var(--ac)] font-semibold'
+                        ? 'text-[var(--tx)] font-semibold'
                         : 'text-[var(--mut)] hover:text-[var(--tx)]'
                     }`}
                   >
@@ -599,7 +620,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
                       <motion.span
                         layoutId="benchCategoryUnderline"
                         transition={LIQUID_MORPH}
-                        className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--ac)]"
+                        className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--editorial-accent)]"
                       />
                     )}
                   </button>
@@ -646,7 +667,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
                     onClick={() => setSelectedBenchId(item.id)}
                     className={`pb-2.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 border-b-2 -mb-[1px] ${
                       active
-                        ? 'text-[var(--tx)] border-[var(--tx)] font-semibold'
+                        ? 'text-[var(--tx)] border-[var(--editorial-accent)] font-semibold'
                         : 'text-[var(--mut)] border-transparent hover:text-[var(--tx)]'
                     }`}
                   >
@@ -722,7 +743,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
               >
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-6 border-b border-[var(--bd)]">
                   <div>
-                    <h2 className="font-serif-fraunces text-2xl sm:text-[1.75rem] font-medium tracking-tight text-[var(--tx)]">
+                    <h2 className="font-display text-2xl sm:text-[1.75rem] font-medium tracking-tight text-[var(--tx)]">
                       {activeCardText?.title || activeBench.title}
                     </h2>
                     <p className="text-sm text-[var(--mut)] mt-1.5 leading-relaxed max-w-xl">
@@ -789,7 +810,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
 
                           <div className="flex items-center gap-2.5 shrink-0">
                             {isLeader && (
-                              <span className="text-[11px] font-semibold text-[var(--ac)]">
+                              <span className="text-[11px] font-semibold text-[var(--editorial-accent)]">
                                 {ui.leaderLabel}
                               </span>
                             )}
@@ -816,7 +837,11 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
                                 delay: idx * 0.032,
                               }}
                               className={`h-full w-full rounded-full origin-left ${
-                                entry.isLongclaw ? 'bar-3d-cobalt' : 'bar-3d-neutral'
+                                isLeader && entry.isLongclaw
+                                  ? 'bg-[var(--editorial-accent)]'
+                                  : entry.isLongclaw
+                                    ? 'bar-3d-cobalt'
+                                    : 'bar-3d-neutral'
                               }`}
                             />
                           </div>
@@ -840,7 +865,7 @@ export function BenchmarkPage({ lang, onBack, onOpenAuth }: BenchmarkPageProps) 
         <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-6 sm:space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
-              <h2 className="font-serif-fraunces text-2xl sm:text-3xl font-medium tracking-tight">
+              <h2 className="font-display text-2xl sm:text-3xl font-medium tracking-tight">
                 {b.tableTitle}
               </h2>
               <p className="text-sm text-[var(--mut)] mt-1.5">

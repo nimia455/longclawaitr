@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Language, TRANSLATIONS } from '../lib/i18n';
@@ -20,6 +20,15 @@ interface LegalModalProps {
 export function LegalModal({ type, lang, onClose }: LegalModalProps) {
   const t = TRANSLATIONS[lang].legal;
   const doc = type ? t.docs[type] : null;
+
+  useEffect(() => {
+    if (!type) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [type]);
 
   return (
     <AnimatePresence>
@@ -51,7 +60,7 @@ export function LegalModal({ type, lang, onClose }: LegalModalProps) {
               <X className="w-4.5 h-4.5" />
             </button>
 
-            <h3 className="font-serif-fraunces text-xl sm:text-2xl font-medium tracking-tight mb-4 sm:mb-5 pr-10">
+            <h3 className="font-display text-xl sm:text-2xl font-medium tracking-tight mb-4 sm:mb-5 pr-10">
               {doc.title}
             </h3>
 

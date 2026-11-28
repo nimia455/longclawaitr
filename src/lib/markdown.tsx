@@ -74,9 +74,9 @@ function CodeBlock({
   };
 
   return (
-    <div className="my-3 w-full max-w-full rounded-xl overflow-hidden border border-[var(--bd)] bg-[var(--surf)]">
-      <div className="px-3.5 py-2 border-b border-[var(--bd)] bg-[var(--bg)]/60 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-mono text-[var(--mut)] uppercase tracking-wider truncate">
+    <div className="my-3.5 w-full max-w-full rounded-2xl overflow-hidden border border-[var(--bd)] bg-[var(--card)]">
+      <div className="px-3.5 py-2 border-b border-[var(--bd)]/85 bg-[var(--surf)]/75 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-mono font-medium text-[var(--mut)] uppercase tracking-wider truncate">
           {displayLang || 'code'}
         </span>
 
@@ -84,7 +84,7 @@ function CodeBlock({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg text-[11px] font-medium text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg text-[11px] font-medium text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--card)] transition-colors cursor-pointer whitespace-nowrap"
           >
             {copied ? (
               <>
@@ -107,7 +107,7 @@ function CodeBlock({
               onClick={() =>
                 options?.onOpenPreview?.(code, detectedLang || language, blockIndex)
               }
-              className="inline-flex items-center gap-1 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-full bg-[var(--ac)] text-[var(--on)] text-[11px] font-medium hover:opacity-90 active:scale-95 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+              className="inline-flex items-center gap-1 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-full bg-[var(--ac)] text-[var(--on)] text-[11px] font-medium hover:opacity-90 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>{options?.openResultLabel || 'Open result'}</span>
@@ -116,9 +116,11 @@ function CodeBlock({
         </div>
       </div>
 
-      <pre className="p-3.5 overflow-x-auto max-w-full text-xs font-mono text-[var(--tx)] leading-relaxed">
+      <pre className="p-4 overflow-x-auto max-w-full text-[12.5px] font-mono text-[var(--tx)] leading-[1.65] bg-[var(--card)]">
         <code>
-          {isStreamingTail ? renderAnimatedTailText(code, `code-${blockIndex}`) : code}
+          {isStreamingTail && code.length <= 180
+            ? renderAnimatedTailText(code, `code-${blockIndex}`)
+            : code}
           {isStreamingTail && <StreamCursor />}
         </code>
       </pre>
@@ -149,7 +151,7 @@ function renderInlineMarkdown(
 ): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const tokenRegex =
-    /`([^`\n]+)`|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*\n]+)\*\*|~~([^~\n]+)~~|(^|[^*])\*([^*\n]+)\*/g;
+    /`([^`\n]+)`|\[([^\]\n]+)\]\((https?:\/\/(?:[^\s()]+|\([^\s()]*\))+)\)|\*\*([^*\n]+)\*\*|~~([^~\n]+)~~|(^|[^\w*])\*(?!\s)((?:[^*\n]*[^\s*]|[^\s*]))\*(?!\w)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -190,7 +192,7 @@ function renderInlineMarkdown(
             href={safeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 text-[var(--tx)] font-medium hover:opacity-80 break-words"
+            className="underline underline-offset-2 text-[var(--tx)] font-medium hover:text-[var(--editorial-accent)] transition-colors break-words"
           >
             {match[2]}
           </a>
@@ -338,7 +340,7 @@ export function renderMarkdown(
     if (seg.type === 'code') {
       return (
         <CodeBlock
-          key={`code-${seg.open ? 'open-' : ''}${seg.startIndex}-${seg.blockIndex}`}
+          key={`code-${seg.startIndex}-${seg.blockIndex}`}
           language={seg.lang}
           code={seg.code}
           blockIndex={seg.blockIndex}
@@ -387,14 +389,40 @@ function renderTextSegment(
     if (listItems.length === 0) return;
     const ListTag = isNumbered ? 'ol' : 'ul';
     const listKey = `list-${baseKey}-${elements.length}`;
+    const hasTaskItems =
+      !isNumbered && listItems.some((item) => /^\[([ xX])\]\s+/.test(item.text));
     elements.push(
       <ListTag
         key={listKey}
-        className={`my-2 pl-5 space-y-1.5 text-[15px] sm:text-sm leading-[1.65] sm:leading-relaxed break-words ${isNumbered ? 'list-decimal' : 'list-disc'}`}
+        className={`my-2 space-y-1.5 text-[15px] sm:text-sm leading-[1.65] sm:leading-relaxed break-words ${
+          hasTaskItems ? 'pl-1 list-none' : isNumbered ? 'pl-5 list-decimal' : 'pl-5 list-disc'
+        }`}
       >
         {listItems.map((item, idx) => {
           const isActiveLine = isStreamingTail && item.lineIdx === lastContentLineIdx;
           if (isActiveLine) cursorPlaced = true;
+          const taskMatch = !isNumbered ? item.text.match(/^\[([ xX])\]\s+(.*)$/) : null;
+          if (taskMatch) {
+            const checked = taskMatch[1].toLowerCase() === 'x';
+            return (
+              <li key={idx} className="flex items-start gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className={`mt-1 w-4 h-4 rounded-[5px] border flex items-center justify-center shrink-0 ${
+                    checked
+                      ? 'bg-[var(--editorial-accent)] border-[var(--editorial-accent)] text-[var(--on)]'
+                      : 'border-[var(--bd)] bg-[var(--surf)]'
+                  }`}
+                >
+                  {checked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                </span>
+                <span className={checked ? 'line-through text-[var(--mut)]' : ''}>
+                  {renderInlineMarkdown(taskMatch[2], `${listKey}-li-${idx}`, isActiveLine)}
+                  {isActiveLine && <StreamCursor />}
+                </span>
+              </li>
+            );
+          }
           return (
             <li key={idx}>
               {renderInlineMarkdown(item.text, `${listKey}-li-${idx}`, isActiveLine)}
@@ -513,13 +541,41 @@ function renderTextSegment(
     const isActiveLine = isStreamingTail && idx === lastContentLineIdx;
 
     // Headers
+    if (trimmed.startsWith('##### ')) {
+      flushList();
+      if (isActiveLine) cursorPlaced = true;
+      elements.push(
+        <h6
+          key={`${baseKey}-${idx}`}
+          className="text-xs font-semibold uppercase tracking-wide text-[var(--mut)] mt-3 mb-1"
+        >
+          {renderInlineMarkdown(trimmed.slice(6), `${baseKey}-h6-${idx}`, isActiveLine)}
+          {isActiveLine && <StreamCursor />}
+        </h6>
+      );
+      continue;
+    }
+    if (trimmed.startsWith('#### ')) {
+      flushList();
+      if (isActiveLine) cursorPlaced = true;
+      elements.push(
+        <h5
+          key={`${baseKey}-${idx}`}
+          className="font-display text-[15px] font-semibold mt-3 mb-1"
+        >
+          {renderInlineMarkdown(trimmed.slice(5), `${baseKey}-h5-${idx}`, isActiveLine)}
+          {isActiveLine && <StreamCursor />}
+        </h5>
+      );
+      continue;
+    }
     if (trimmed.startsWith('### ')) {
       flushList();
       if (isActiveLine) cursorPlaced = true;
       elements.push(
         <h4
           key={`${baseKey}-${idx}`}
-          className="font-serif-fraunces text-base font-semibold mt-3 mb-1"
+          className="font-display text-base font-semibold mt-3 mb-1"
         >
           {renderInlineMarkdown(trimmed.slice(4), `${baseKey}-h4-${idx}`, isActiveLine)}
           {isActiveLine && <StreamCursor />}
@@ -533,7 +589,7 @@ function renderTextSegment(
       elements.push(
         <h3
           key={`${baseKey}-${idx}`}
-          className="font-serif-fraunces text-lg font-semibold mt-4 mb-1.5"
+          className="font-display text-lg font-semibold mt-4 mb-1.5"
         >
           {renderInlineMarkdown(trimmed.slice(3), `${baseKey}-h3-${idx}`, isActiveLine)}
           {isActiveLine && <StreamCursor />}
@@ -547,7 +603,7 @@ function renderTextSegment(
       elements.push(
         <h2
           key={`${baseKey}-${idx}`}
-          className="font-serif-fraunces text-xl font-bold mt-4 mb-2"
+          className="font-display text-xl font-bold mt-4 mb-2"
         >
           {renderInlineMarkdown(trimmed.slice(2), `${baseKey}-h2-${idx}`, isActiveLine)}
           {isActiveLine && <StreamCursor />}
@@ -579,7 +635,7 @@ function renderTextSegment(
       elements.push(
         <blockquote
           key={`${baseKey}-${idx}`}
-          className="my-2 pl-3.5 border-l-2 border-[var(--ac)] text-[var(--mut)] italic text-sm"
+          className="my-3 rounded-xl bg-[var(--surf)]/80 border border-[var(--bd)]/80 px-4 py-3 font-display italic text-[14.5px] leading-relaxed text-[var(--tx)]/88"
         >
           {renderInlineMarkdown(trimmed.slice(2), `${baseKey}-bq-${idx}`, isActiveLine)}
           {isActiveLine && <StreamCursor />}

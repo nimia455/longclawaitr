@@ -147,46 +147,57 @@ export function AuthModal({
 
   const loading = busyAction !== null;
   const wasOpenRef = useRef(false);
+  const isMountedRef = useRef(true);
   const celebrationTimerRef = useRef<number | null>(null);
+  const onAuthFlowPendingChangeRef = useRef(onAuthFlowPendingChange);
+  onAuthFlowPendingChangeRef.current = onAuthFlowPendingChange;
 
-  const finishAccountCreationCelebration = () => {
+  const clearCelebrationTimer = () => {
     if (celebrationTimerRef.current !== null) {
       window.clearTimeout(celebrationTimerRef.current);
       celebrationTimerRef.current = null;
     }
-    onAuthFlowPendingChange?.(false);
+  };
+
+  const finishAccountCreationCelebration = () => {
+    clearCelebrationTimer();
+    onAuthFlowPendingChangeRef.current?.(false);
     onSuccess();
   };
 
   const triggerAccountCreatedCelebration = (displayName?: string | null) => {
+    if (!isMountedRef.current) return;
     setCreatedName((displayName || '').trim());
     setViewDirection(1);
     setViewMode('created');
-    onAuthFlowPendingChange?.(true);
-    if (celebrationTimerRef.current !== null) {
-      window.clearTimeout(celebrationTimerRef.current);
-    }
+    onAuthFlowPendingChangeRef.current?.(true);
+    clearCelebrationTimer();
     celebrationTimerRef.current = window.setTimeout(() => {
       finishAccountCreationCelebration();
-    }, 2200);
+    }, 950);
   };
 
+  // Unmount-only cleanup so parent re-renders during sign-up never cancel the celebration timer
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      if (celebrationTimerRef.current !== null) {
-        window.clearTimeout(celebrationTimerRef.current);
-        celebrationTimerRef.current = null;
-      }
-      onAuthFlowPendingChange?.(false);
+      isMountedRef.current = false;
+      clearCelebrationTimer();
+      onAuthFlowPendingChangeRef.current?.(false);
     };
-  }, [onAuthFlowPendingChange]);
+  }, []);
 
-  // Cleanly initialize state every time the modal opens fresh
+  // Cleanly initialize state every time the modal opens fresh, and cancel stale timers on close
   useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
+    if (!isOpen && wasOpenRef.current) {
+      clearCelebrationTimer();
+      setBusyAction(null);
+    } else if (isOpen && !wasOpenRef.current) {
+      clearCelebrationTimer();
       setTab(initialTab);
       setError(null);
       setInfo(null);
+      setPassword('');
       setShowPassword(false);
       setShowNewPassword(false);
       setBusyAction(null);
@@ -251,91 +262,132 @@ export function AuthModal({
   };
 
   const handleGoogleSignIn = async () => {
+    if (loading) return;
     try {
       setBusyAction('google');
       resetMessages();
-      if (tab === 'up') {
-        onAuthFlowPendingChange?.(true);
-      }
+      onAuthFlowPendingChangeRef.current?.(true);
       const res = await signInWithPopup(auth, googleProvider);
       const isNewUser = Boolean(getAdditionalUserInfo(res)?.isNewUser);
       if (res.user) {
-        await syncUserProfile(res.user);
+        void syncUserProfile(res.user).catch(() => {});
       }
-      if (isNewUser || tab === 'up') {
+      if (isNewUser) {
         triggerAccountCreatedCelebration(res.user?.displayName);
       } else {
-        onAuthFlowPendingChange?.(false);
+        onAuthFlowPendingChangeRef.current?.(false);
         onSuccess();
       }
     } catch (err: any) {
-      onAuthFlowPendingChange?.(false);
+      onAuthFlowPendingChangeRef.current?.(false);
+      if (!isMountedRef.current) return;
       console.error('Google auth error:', err);
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      if (err.code === 'auth/unauthorized-domain') {
+      const code = err?.code || '';
+      if (code === 'auth/unauthorized-domain') {
         setError(
           lang === 'tr'
             ? `"${host}" alan adı Firebase Yetkili Alan Adları listesinde yok. Firebase Console → Authentication → Settings → Authorized domains bölümüne ekleyin.`
             : `Domain "${host}" is not authorized in Firebase yet. Add it under Firebase Console → Authentication → Settings → Authorized domains.`
         );
-      } else if (err.code === 'auth/popup-closed-by-user') {
+      } else if (code === 'auth/popup-blocked') {
+        setError(
+          lang === 'tr'
+            ? 'Tarayıcı giriş penceresini engelledi. Açılır pencerelere izin verin veya e-posta ile giriş yapın.'
+            : 'Your browser blocked the sign-in popup. Allow popups for this site or sign in with email.'
+        );
+      } else if (code === 'auth/cancelled-popup-request') {
+        setError(null);
+      } else if (code === 'auth/popup-closed-by-user') {
         setError(errs.popupClosed);
-      } else if (err.code === 'auth/account-exists-with-different-credential') {
+      } else if (code === 'auth/account-exists-with-different-credential') {
         setError(errs.accountExistsDifferentCred);
+      } else if (code === 'auth/network-request-failed') {
+        setError(
+          lang === 'tr'
+            ? 'Ağ bağlantısı kurulamadı. İnternet bağlantını kontrol edip tekrar dene.'
+            : 'Network error. Please check your connection and try again.'
+        );
+      } else if (code === 'auth/user-disabled') {
+        setError(
+          lang === 'tr'
+            ? 'Bu hesap devre dışı bırakılmış.'
+            : 'This account has been disabled.'
+        );
       } else {
-        setError(err.message || errs.googleGeneric);
+        setError(errs.googleGeneric);
       }
     } finally {
-      setBusyAction(null);
+      if (isMountedRef.current) {
+        setBusyAction(null);
+      }
     }
   };
 
   const handleAppleSignIn = async () => {
+    if (loading) return;
     try {
       setBusyAction('apple');
       resetMessages();
-      if (tab === 'up') {
-        onAuthFlowPendingChange?.(true);
-      }
+      onAuthFlowPendingChangeRef.current?.(true);
       const res = await signInWithPopup(auth, appleProvider);
       const isNewUser = Boolean(getAdditionalUserInfo(res)?.isNewUser);
       if (res.user) {
-        await syncUserProfile(res.user);
+        void syncUserProfile(res.user).catch(() => {});
       }
-      if (isNewUser || tab === 'up') {
+      if (isNewUser) {
         triggerAccountCreatedCelebration(res.user?.displayName);
       } else {
-        onAuthFlowPendingChange?.(false);
+        onAuthFlowPendingChangeRef.current?.(false);
         onSuccess();
       }
     } catch (err: any) {
-      onAuthFlowPendingChange?.(false);
+      onAuthFlowPendingChangeRef.current?.(false);
+      if (!isMountedRef.current) return;
       console.error('Apple auth error:', err);
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      if (err.code === 'auth/unauthorized-domain') {
+      const code = err?.code || '';
+      if (code === 'auth/unauthorized-domain') {
         setError(
           lang === 'tr'
             ? `"${host}" alan adı Firebase Yetkili Alan Adları listesinde yok. Firebase Console → Authentication → Settings → Authorized domains bölümüne ekleyin.`
             : `Domain "${host}" is not authorized in Firebase yet. Add it under Firebase Console → Authentication → Settings → Authorized domains.`
         );
-      } else if (err.code === 'auth/popup-closed-by-user') {
+      } else if (code === 'auth/popup-blocked') {
+        setError(
+          lang === 'tr'
+            ? 'Tarayıcı giriş penceresini engelledi. Açılır pencerelere izin verin veya e-posta ile giriş yapın.'
+            : 'Your browser blocked the sign-in popup. Allow popups for this site or sign in with email.'
+        );
+      } else if (code === 'auth/cancelled-popup-request') {
+        setError(null);
+      } else if (code === 'auth/popup-closed-by-user') {
         setError(errs.applePopupClosed);
-      } else if (err.code === 'auth/operation-not-allowed') {
+      } else if (code === 'auth/operation-not-allowed') {
         setError(errs.appleNotAllowed);
+      } else if (code === 'auth/network-request-failed') {
+        setError(
+          lang === 'tr'
+            ? 'Ağ bağlantısı kurulamadı. İnternet bağlantını kontrol edip tekrar dene.'
+            : 'Network error. Please check your connection and try again.'
+        );
       } else {
-        setError(err.message || errs.appleGeneric);
+        setError(errs.appleGeneric);
       }
     } finally {
-      setBusyAction(null);
+      if (isMountedRef.current) {
+        setBusyAction(null);
+      }
     }
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     resetMessages();
 
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setError(errs.invalidEmail);
       return;
     }
@@ -352,41 +404,73 @@ export function AuthModal({
 
     try {
       setBusyAction('email');
+      onAuthFlowPendingChangeRef.current?.(true);
       if (tab === 'up') {
-        // Hold modal transition so the account-created tick celebration plays smoothly
-        onAuthFlowPendingChange?.(true);
         const res = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-        if (name.trim()) {
-          await updateProfile(res.user, { displayName: name.trim() });
+        const trimmedName = name.trim();
+        if (trimmedName) {
+          // Bound profile display name update so a slow network call never stalls sign-up
+          await Promise.race([
+            updateProfile(res.user, { displayName: trimmedName }).catch((profileErr) => {
+              console.warn('Display name update warning:', profileErr);
+            }),
+            new Promise<void>((resolve) => window.setTimeout(resolve, 1200)),
+          ]);
         }
-        try {
-          await sendEmailVerification(res.user);
-        } catch (verifyErr) {
+        // Dispatch verification email and profile sync in the background
+        void sendEmailVerification(res.user).catch((verifyErr) => {
           console.warn('Email verification dispatch error:', verifyErr);
-        }
-        await syncUserProfile(res.user);
-        triggerAccountCreatedCelebration(name.trim() || res.user.displayName);
+        });
+        void syncUserProfile(res.user).catch(() => {});
+        triggerAccountCreatedCelebration(trimmedName || res.user.displayName);
       } else {
         const res = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        await syncUserProfile(res.user);
+        void syncUserProfile(res.user).catch(() => {});
+        onAuthFlowPendingChangeRef.current?.(false);
         onSuccess();
       }
     } catch (err: any) {
-      onAuthFlowPendingChange?.(false);
+      onAuthFlowPendingChangeRef.current?.(false);
+      if (!isMountedRef.current) return;
       console.error('Email auth error:', err);
-      if (err.code === 'auth/email-already-in-use') {
+      const code = err?.code || '';
+      if (code === 'auth/email-already-in-use') {
         setError(errs.emailInUse);
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      } else if (code === 'auth/invalid-email') {
+        setError(errs.invalidEmail);
+      } else if (code === 'auth/weak-password') {
+        setError(errs.shortPassword);
+      } else if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
         setError(errs.invalidCredential);
-      } else if (err.code === 'auth/user-not-found') {
+      } else if (code === 'auth/user-not-found') {
         setError(errs.userNotFound);
-      } else if (err.code === 'auth/operation-not-allowed') {
+      } else if (code === 'auth/user-disabled') {
+        setError(
+          lang === 'tr'
+            ? 'Bu hesap devre dışı bırakılmış.'
+            : 'This account has been disabled.'
+        );
+      } else if (code === 'auth/operation-not-allowed') {
         setError(errs.operationNotAllowed);
+      } else if (code === 'auth/too-many-requests') {
+        setError(
+          lang === 'tr'
+            ? 'Çok fazla deneme yapıldı. Lütfen biraz bekleyip tekrar dene.'
+            : 'Too many attempts. Please wait a moment and try again.'
+        );
+      } else if (code === 'auth/network-request-failed') {
+        setError(
+          lang === 'tr'
+            ? 'Ağ bağlantısı kurulamadı. İnternet bağlantını kontrol edip tekrar dene.'
+            : 'Network error. Please check your connection and try again.'
+        );
       } else {
-        setError(err.message || errs.genericAuth);
+        setError(errs.genericAuth);
       }
     } finally {
-      setBusyAction(null);
+      if (isMountedRef.current) {
+        setBusyAction(null);
+      }
     }
   };
 
@@ -411,8 +495,12 @@ export function AuthModal({
       console.error('Password reset error:', err);
       if (err.code === 'auth/user-not-found') {
         setError(errs.resetUserNotFound);
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError(errs.operationNotAllowed);
+      } else if (err.code === 'auth/invalid-email') {
+        setError(errs.invalidEmailReset);
       } else {
-        setError(errs.resetSendFailed(err.message || errs.genericAuth));
+        setError(errs.resetSendFailed(errs.genericAuth));
       }
     } finally {
       setBusyAction(null);
@@ -495,7 +583,13 @@ export function AuthModal({
           animate={{ opacity: 1, transition: MODAL_BACKDROP_ENTER }}
           exit={{ opacity: 0, transition: MODAL_BACKDROP_EXIT }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-black/52 dark:bg-black/68"
-          onClick={onClose}
+          onClick={() => {
+            if (viewMode === 'created') {
+              finishAccountCreationCelebration();
+            } else if (!loading) {
+              onClose();
+            }
+          }}
         >
           <motion.div
             key="auth-modal-sheet"
@@ -511,8 +605,11 @@ export function AuthModal({
             {viewMode !== 'created' && (
               <button
                 type="button"
-                onClick={onClose}
-                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] transition-colors cursor-pointer"
+                disabled={loading}
+                onClick={() => {
+                  if (!loading) onClose();
+                }}
+                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-[var(--mut)] hover:text-[var(--tx)] hover:bg-[var(--surf)] disabled:opacity-40 transition-colors cursor-pointer"
                 aria-label={t.common.close}
               >
                 <X className="w-4.5 h-4.5" />
@@ -537,7 +634,7 @@ export function AuthModal({
                     >
                       <h3
                         id="auth-modal-title"
-                        className="text-[24px] leading-tight font-semibold tracking-[-0.025em]"
+                        className="font-display text-[26px] leading-tight font-medium tracking-[-0.02em]"
                       >
                         {headerTitle}
                       </h3>
@@ -562,63 +659,31 @@ export function AuthModal({
                     aria-live="polite"
                     className="py-10 px-2 flex flex-col items-center justify-center text-center"
                   >
-                    {/* Animated Tick Circle + Expanding Ripple + Subtle Radial Burst */}
+                    {/* Animated Monochrome Tick Circle */}
                     <div className="relative w-24 h-24 flex items-center justify-center mb-6">
-                      {/* Crisp Expanding Halo Ring (zero blur) */}
                       {!prefersReducedMotion && (
                         <motion.span
-                          initial={{ scale: 0.72, opacity: 0.55 }}
-                          animate={{ scale: 1.48, opacity: 0 }}
-                          transition={{ duration: 0.88, delay: 0.28, ease: EDITORIAL_EASE }}
-                          className="pointer-events-none absolute inset-1 rounded-full border border-emerald-500/70"
+                          initial={{ scale: 0.72, opacity: 0.5 }}
+                          animate={{ scale: 1.42, opacity: 0 }}
+                          transition={{ duration: 0.7, delay: 0.2, ease: EDITORIAL_EASE }}
+                          className="pointer-events-none absolute inset-1 rounded-full border border-[var(--tx)]/40"
                           aria-hidden="true"
                         />
                       )}
 
-                      {/* 8 Minimal Radial Accent Ticks */}
-                      {!prefersReducedMotion && (
-                        <svg
-                          viewBox="0 0 112 112"
-                          className="pointer-events-none absolute -inset-2 w-[112px] h-[112px]"
-                          aria-hidden="true"
-                        >
-                          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-                            <motion.line
-                              key={deg}
-                              x1="56"
-                              y1="10"
-                              x2="56"
-                              y2="16"
-                              stroke="var(--ac)"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              transform={`rotate(${deg} 56 56)`}
-                              initial={{ opacity: 0, scaleY: 0.4 }}
-                              animate={{ opacity: [0, 0.75, 0], scaleY: [0.4, 1, 0.7] }}
-                              transition={{
-                                duration: 0.72,
-                                delay: 0.34,
-                                ease: EDITORIAL_EASE,
-                              }}
-                            />
-                          ))}
-                        </svg>
-                      )}
-
-                      {/* Filled Circle Scale-In + Self-Drawing Tick SVG */}
                       <motion.div
-                        initial={prefersReducedMotion ? false : { scale: 0.78 }}
-                        animate={{ scale: [0.78, 1.06, 1] }}
+                        initial={prefersReducedMotion ? false : { scale: 0.82 }}
+                        animate={{ scale: [0.82, 1.04, 1] }}
                         transition={{
-                          duration: 0.52,
+                          duration: 0.42,
                           times: [0, 0.65, 1],
                           ease: EDITORIAL_EASE,
                         }}
-                        className="w-20 h-20 rounded-full bg-emerald-500/12 border border-emerald-500/35 flex items-center justify-center"
+                        className="w-20 h-20 rounded-full bg-[var(--surf)] border border-[var(--bd)] flex items-center justify-center"
                       >
                         <svg
                           viewBox="0 0 56 56"
-                          className="w-14 h-14 text-emerald-600 dark:text-emerald-400"
+                          className="w-12 h-12 text-[var(--tx)]"
                           fill="none"
                           aria-hidden="true"
                         >
@@ -631,7 +696,7 @@ export function AuthModal({
                             strokeLinecap="round"
                             initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
                             animate={{ pathLength: 1 }}
-                            transition={{ duration: 0.48, ease: EDITORIAL_EASE }}
+                            transition={{ duration: 0.36, ease: EDITORIAL_EASE }}
                           />
                           <motion.path
                             d="M17.5 28.8L24.8 36L39 20.8"
@@ -641,7 +706,7 @@ export function AuthModal({
                             strokeLinejoin="round"
                             initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
                             animate={{ pathLength: 1 }}
-                            transition={{ duration: 0.42, delay: 0.28, ease: EDITORIAL_EASE }}
+                            transition={{ duration: 0.32, delay: 0.18, ease: EDITORIAL_EASE }}
                           />
                         </svg>
                       </motion.div>
@@ -653,7 +718,7 @@ export function AuthModal({
                       initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.38, delay: 0.36, ease: EDITORIAL_EASE }}
-                      className="text-2xl font-semibold tracking-[-0.025em] text-[var(--tx)]"
+                      className="font-display text-[26px] font-medium tracking-[-0.02em] text-[var(--tx)]"
                     >
                       {lang === 'tr' ? 'Her şey hazır' : "You're all set"}
                     </motion.h3>
@@ -716,6 +781,7 @@ export function AuthModal({
                           exit="exit"
                           transition={{ duration: 0.18, ease: LIQUID_EASE }}
                           onSubmit={handleSendPasswordReset}
+                          noValidate
                         >
                           <p className="text-xs text-[var(--mut)] leading-relaxed pb-3.5">
                             {a.forgotDesc}
@@ -726,9 +792,16 @@ export function AuthModal({
                               <Mail className="w-4 h-4 text-[var(--mut)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                               <input
                                 type="email"
+                                inputMode="email"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
                                 placeholder={a.emailPlaceholder}
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => {
+                                  setEmail(e.target.value);
+                                  if (error) setError(null);
+                                }}
                                 autoComplete="email"
                                 required
                                 className="well-3d w-full pl-10 pr-4 py-3 sm:py-2.5 rounded-xl text-[var(--tx)] placeholder:text-[var(--mut)] text-base sm:text-sm outline-none focus:border-[var(--tx)] transition-colors"
@@ -790,6 +863,7 @@ export function AuthModal({
                           exit="exit"
                           transition={{ duration: 0.18, ease: LIQUID_EASE }}
                           onSubmit={handleConfirmResetCode}
+                          noValidate
                         >
                           <div className="p-3 rounded-xl bg-[var(--surf)] border border-[var(--bd)] text-xs text-[var(--mut)] space-y-1 mb-3">
                             <div className="flex items-center gap-1.5 text-[var(--tx)] font-medium">
@@ -996,7 +1070,10 @@ export function AuthModal({
                               type="text"
                               placeholder={a.namePlaceholder}
                               value={name}
-                              onChange={(e) => setName(e.target.value)}
+                              onChange={(e) => {
+                                setName(e.target.value);
+                                if (error) setError(null);
+                              }}
                               autoComplete="name"
                               tabIndex={tab === 'up' ? 0 : -1}
                               className="well-3d w-full pl-10 pr-4 py-3 sm:py-2.5 rounded-xl text-[var(--tx)] placeholder:text-[var(--mut)] text-base sm:text-sm outline-none focus:border-[var(--tx)] transition-colors"
@@ -1011,9 +1088,16 @@ export function AuthModal({
                           <Mail className="w-4 h-4 text-[var(--mut)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="email"
+                            inputMode="email"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
                             placeholder={a.emailShortPlaceholder}
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              if (error) setError(null);
+                            }}
                             autoComplete="email"
                             required
                             className="well-3d w-full pl-10 pr-4 py-3 sm:py-2.5 rounded-xl text-[var(--tx)] placeholder:text-[var(--mut)] text-base sm:text-sm outline-none focus:border-[var(--tx)] transition-colors"
@@ -1028,7 +1112,10 @@ export function AuthModal({
                           type={showPassword ? 'text' : 'password'}
                           placeholder={a.passwordPlaceholder}
                           value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (error) setError(null);
+                          }}
                           autoComplete={tab === 'up' ? 'new-password' : 'current-password'}
                           required
                           className="well-3d w-full pl-10 pr-11 py-3 sm:py-2.5 rounded-xl text-[var(--tx)] placeholder:text-[var(--mut)] text-base sm:text-sm outline-none focus:border-[var(--tx)] transition-colors"
@@ -1083,7 +1170,10 @@ export function AuthModal({
                             <input
                               type="checkbox"
                               checked={acceptTos}
-                              onChange={(e) => setAcceptTos(e.target.checked)}
+                              onChange={(e) => {
+                                setAcceptTos(e.target.checked);
+                                if (error) setError(null);
+                              }}
                               tabIndex={tab === 'up' ? 0 : -1}
                               className="mt-0.5 rounded border-[var(--bd)] accent-[var(--tx)] cursor-pointer"
                             />
@@ -1092,7 +1182,11 @@ export function AuthModal({
                               <button
                                 type="button"
                                 tabIndex={tab === 'up' ? 0 : -1}
-                                onClick={() => onOpenLegal('sartlar')}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onOpenLegal('sartlar');
+                                }}
                                 className="underline hover:text-[var(--tx)] text-[var(--tx)] font-medium cursor-pointer"
                               >
                                 {a.tosTerms}
@@ -1101,7 +1195,11 @@ export function AuthModal({
                               <button
                                 type="button"
                                 tabIndex={tab === 'up' ? 0 : -1}
-                                onClick={() => onOpenLegal('gizlilik')}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onOpenLegal('gizlilik');
+                                }}
                                 className="underline hover:text-[var(--tx)] text-[var(--tx)] font-medium cursor-pointer"
                               >
                                 {a.tosPrivacy}

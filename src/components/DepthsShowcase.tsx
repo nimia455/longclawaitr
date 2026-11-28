@@ -215,7 +215,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
       ref={containerRef}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className="rounded-[28px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden shadow-[0_24px_64px_-32px_rgba(24,23,21,0.16)] dark:shadow-[0_28px_72px_-32px_rgba(0,0,0,0.68)]"
+      className="rounded-[28px] bg-[var(--card)] border border-[var(--bd)] overflow-hidden shadow-[0_12px_36px_-24px_rgba(23,22,20,0.12)] dark:shadow-[0_18px_48px_-28px_rgba(0,0,0,0.48)]"
     >
       {/* Interactive Depth Selector Bar */}
       <div
@@ -245,7 +245,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                 <motion.span
                   layoutId="depths-active-tab-surface"
                   transition={LIQUID_MORPH}
-                  className="absolute inset-0 rounded-[18px] bg-[var(--card)] border border-[var(--bd)] shadow-[0_10px_24px_-16px_rgba(24,23,21,0.22)] dark:shadow-[0_12px_28px_-16px_rgba(0,0,0,0.65)]"
+                  className="absolute inset-0 rounded-[18px] bg-[var(--card)] border border-[var(--bd)] shadow-[0_4px_14px_-8px_rgba(23,22,20,0.12)] dark:shadow-[0_6px_18px_-10px_rgba(0,0,0,0.45)]"
                   aria-hidden="true"
                 />
               )}
@@ -255,7 +255,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <div className="flex items-center gap-2 mb-1">
                     <Icon
                       className={`w-4 h-4 shrink-0 transition-colors ${
-                        active ? 'text-[var(--ac)]' : 'text-[var(--mut)]'
+                        active ? 'text-[var(--editorial-accent)]' : 'text-[var(--mut)]'
                       }`}
                     />
                     <span className="font-soft text-[15px] font-semibold tracking-tight whitespace-nowrap">
@@ -279,7 +279,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                         }}
                         transition={{ duration: 0.24, ease: LIQUID_EASE }}
                         className={`w-[3px] rounded-full origin-bottom ${heights[b]} ${
-                          active && filled ? 'bg-[var(--ac)]' : 'bg-[var(--tx)]'
+                          active && filled ? 'bg-[var(--editorial-accent)]' : 'bg-[var(--tx)]'
                         }`}
                       />
                     );
@@ -378,7 +378,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 L 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="2.2"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
@@ -397,8 +397,8 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                         times: [0, 0.12, 0.86, 1],
                       }}
                     >
-                      <circle cx="0" cy="92" r="7.5" fill="none" stroke="var(--ac)" strokeWidth="1.2" strokeOpacity="0.4" />
-                      <circle cx="0" cy="92" r="3.5" fill="var(--ac)" />
+                      <circle cx="0" cy="92" r="7.5" fill="none" stroke="var(--editorial-accent)" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <circle cx="0" cy="92" r="3.5" fill="var(--editorial-accent)" />
                     </motion.g>
                   )}
 
@@ -415,10 +415,10 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     <path
                       d="M 340 84.5 L 347.5 92 L 340 99.5 L 332.5 92 Z"
                       fill="var(--card)"
-                      stroke="var(--ac)"
+                      stroke="var(--editorial-accent)"
                       strokeWidth="1.6"
                     />
-                    <circle cx="340" cy="92" r="2.2" fill="var(--ac)" />
+                    <circle cx="340" cy="92" r="2.2" fill="var(--editorial-accent)" />
                   </motion.g>
 
                   <motion.text
@@ -455,7 +455,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 C 190 92, 232 48, 340 48 C 448 48, 490 92, 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="2"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
@@ -467,9 +467,9 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 C 190 92, 232 136, 340 136 C 448 136, 490 92, 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="2"
-                    strokeOpacity="0.82"
+                    strokeOpacity="0.78"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
                     animate={{ pathLength: phase >= 2 ? 1 : 0 }}
@@ -478,7 +478,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
 
                   {/* Smooth curve-hugging signal pulses traveling along both Balanced arcs */}
                   {!prefersReducedMotion && phase >= 1 && (
-                    <circle r="3" fill="var(--ac)" opacity="0.9">
+                    <circle r="3" fill="var(--editorial-accent)" opacity="0.9">
                       <animateMotion
                         dur="2.4s"
                         repeatCount="indefinite"
@@ -491,7 +491,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     </circle>
                   )}
                   {!prefersReducedMotion && phase >= 2 && (
-                    <circle r="3" fill="var(--ac)" opacity="0.75">
+                    <circle r="3" fill="var(--editorial-accent)" opacity="0.75">
                       <animateMotion
                         dur="2.4s"
                         begin="0.45s"
@@ -528,8 +528,8 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     }}
                     transition={{ duration: 0.28, delay: 0.18, ease: LIQUID_EASE }}
                   >
-                    <circle cx="340" cy="48" r="9.5" fill="var(--card)" stroke="var(--ac)" strokeWidth="1.75" />
-                    <circle cx="340" cy="48" r="3" fill="var(--ac)" />
+                    <circle cx="340" cy="48" r="9.5" fill="var(--card)" stroke="var(--editorial-accent)" strokeWidth="1.75" />
+                    <circle cx="340" cy="48" r="3" fill="var(--editorial-accent)" />
                   </motion.g>
                   <motion.text
                     x="340"
@@ -555,8 +555,8 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     }}
                     transition={{ duration: 0.28, delay: 0.12, ease: LIQUID_EASE }}
                   >
-                    <circle cx="340" cy="136" r="9.5" fill="var(--card)" stroke="var(--ac)" strokeWidth="1.75" />
-                    <circle cx="340" cy="136" r="3" fill="var(--ac)" />
+                    <circle cx="340" cy="136" r="9.5" fill="var(--card)" stroke="var(--editorial-accent)" strokeWidth="1.75" />
+                    <circle cx="340" cy="136" r="3" fill="var(--editorial-accent)" />
                   </motion.g>
                   <motion.text
                     x="340"
@@ -593,7 +593,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 C 162 92, 184 38, 250 38 L 430 38 C 496 38, 518 92, 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="1.9"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
@@ -605,7 +605,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 L 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="1.9"
                     strokeOpacity="0.86"
                     strokeLinecap="round"
@@ -618,9 +618,9 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                   <motion.path
                     d="M 100 92 C 162 92, 184 146, 250 146 L 430 146 C 496 146, 518 92, 580 92"
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth="1.9"
-                    strokeOpacity="0.78"
+                    strokeOpacity="0.74"
                     strokeLinecap="round"
                     initial={prefersReducedMotion ? { pathLength: 1 } : { pathLength: 0 }}
                     animate={{ pathLength: phase >= 3 ? 1 : 0 }}
@@ -629,7 +629,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
 
                   {/* Curve-hugging signal pulses traveling across all 3 Deep lattice rails */}
                   {!prefersReducedMotion && phase >= 1 && (
-                    <circle r="2.75" fill="var(--ac)" opacity="0.9">
+                    <circle r="2.75" fill="var(--editorial-accent)" opacity="0.9">
                       <animateMotion
                         dur="2.8s"
                         repeatCount="indefinite"
@@ -642,7 +642,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     </circle>
                   )}
                   {!prefersReducedMotion && phase >= 2 && (
-                    <circle r="2.75" fill="var(--ac)" opacity="0.82">
+                    <circle r="2.75" fill="var(--editorial-accent)" opacity="0.82">
                       <animateMotion
                         dur="2.8s"
                         begin="0.55s"
@@ -656,7 +656,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     </circle>
                   )}
                   {!prefersReducedMotion && phase >= 3 && (
-                    <circle r="2.75" fill="var(--ac)" opacity="0.74">
+                    <circle r="2.75" fill="var(--editorial-accent)" opacity="0.74">
                       <animateMotion
                         dur="2.8s"
                         begin="1.1s"
@@ -715,8 +715,8 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                           }}
                           transition={{ duration: 0.26, delay: 0.08, ease: LIQUID_EASE }}
                         >
-                          <circle cx="250" cy={layer.y} r="7.5" fill="var(--card)" stroke="var(--ac)" strokeWidth="1.65" />
-                          <circle cx="250" cy={layer.y} r="2.5" fill="var(--ac)" />
+                          <circle cx="250" cy={layer.y} r="7.5" fill="var(--card)" stroke="var(--editorial-accent)" strokeWidth="1.65" />
+                          <circle cx="250" cy={layer.y} r="2.5" fill="var(--editorial-accent)" />
                         </motion.g>
 
                         {/* Verification node (right) */}
@@ -729,8 +729,8 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                           }}
                           transition={{ duration: 0.26, delay: 0.06, ease: LIQUID_EASE }}
                         >
-                          <circle cx="430" cy={layer.y} r="7.5" fill="var(--card)" stroke="var(--ac)" strokeWidth="1.65" />
-                          <circle cx="430" cy={layer.y} r="2.5" fill="var(--ac)" />
+                          <circle cx="430" cy={layer.y} r="7.5" fill="var(--card)" stroke="var(--editorial-accent)" strokeWidth="1.65" />
+                          <circle cx="430" cy={layer.y} r="2.5" fill="var(--editorial-accent)" />
                         </motion.g>
 
                         {/* Clean layer title centered between the two nodes */}
@@ -785,7 +785,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                 transition={{ duration: 0.65, ease: LIQUID_EASE }}
               />
               <circle cx="82" cy="92" r="17" fill="var(--card)" stroke="var(--tx)" strokeOpacity="0.72" strokeWidth="1.5" />
-              <circle cx="82" cy="92" r="4.5" fill="var(--ac)" />
+              <circle cx="82" cy="92" r="4.5" fill="var(--editorial-accent)" />
               <text
                 x="82"
                 y="142"
@@ -810,7 +810,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                     cy="92"
                     r={radius}
                     fill="none"
-                    stroke="var(--ac)"
+                    stroke="var(--editorial-accent)"
                     strokeWidth={ringIdx === 0 ? '1.35' : '1.05'}
                     style={{ transformOrigin: '598px 92px' }}
                     initial={false}
@@ -953,7 +953,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
                         transition={{ duration: 0.34, ease: LIQUID_EASE }}
                         className="grid grid-cols-[2rem_1fr] gap-3 items-baseline"
                       >
-                        <span className="text-xs tabular-nums text-[var(--ac)] font-semibold">
+                        <span className="text-xs tabular-nums text-[var(--editorial-accent)] font-semibold">
                           {step.num}
                         </span>
                         <p className="text-[14.5px] sm:text-[15.5px] leading-[1.7] text-[var(--tx)]/90">
@@ -979,7 +979,7 @@ export function DepthsShowcase({ prompt, answers, lang }: DepthsShowcaseProps) {
         {!prefersReducedMotion && (
           <motion.div
             key={`depth-dwell-${animKey}-${arrived ? 'dwell' : 'trace'}-${isPaused ? 'p' : 'r'}-${isInView ? 'v' : 'h'}`}
-            className="h-full w-full bg-[var(--ac)]/75 origin-left"
+            className="h-full w-full bg-[var(--editorial-accent)]/80 origin-left"
             initial={{ scaleX: arrived ? 0.24 : 0 }}
             animate={{
               scaleX: !arrived ? 0.24 : isPaused || !isInView ? 0.24 : 1,
